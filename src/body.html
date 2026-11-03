@@ -1,0 +1,123 @@
+<body class="locked">
+
+<div id="login">
+  <div class="lbox" id="bootMsg">Loading…</div>
+  <form class="lbox" id="loginForm" autocomplete="on" style="display:none">
+    <div class="brand"><span class="dot"></span>Work &amp; Travel Calendar</div>
+    <div class="hint">Please sign in to see the calendar.</div>
+    <label>Username <input type="text" id="lUser" autocomplete="username" autocapitalize="off" spellcheck="false" required></label>
+    <label>Password <input type="password" id="lPass" autocomplete="current-password" required></label>
+    <label class="chk"><input type="checkbox" id="lRemember"> Keep me signed in on this device</label>
+    <div class="lerr" id="lErr"></div>
+    <button class="primary" type="submit" id="lBtn">Sign in</button>
+  </form>
+  <form class="lbox" id="setupForm" autocomplete="off" style="display:none">
+    <div class="brand"><span class="dot"></span>Work &amp; Travel Calendar</div>
+    <div class="hint"><b>First start:</b> create the two accounts. You can change them or add more later (⋯ → User accounts). Passwords need at least 6 characters.</div>
+    <fieldset><legend>Editor (can read and change)</legend>
+      <label>Username <input type="text" id="sEdUser" value="dkouis" autocapitalize="off" spellcheck="false" required></label>
+      <label>Password <input type="password" id="sEdPass" autocomplete="new-password" minlength="6" required></label>
+      <label>Repeat password <input type="password" id="sEdPass2" autocomplete="new-password" minlength="6" required></label>
+    </fieldset>
+    <fieldset><legend>Viewer (can only read)</legend>
+      <label>Username <input type="text" id="sVwUser" value="viewer" autocapitalize="off" spellcheck="false" required></label>
+      <label>Password <input type="password" id="sVwPass" autocomplete="new-password" minlength="6" required></label>
+      <label>Repeat password <input type="password" id="sVwPass2" autocomplete="new-password" minlength="6" required></label>
+    </fieldset>
+    <div class="lerr" id="sErr"></div>
+    <button class="primary" type="submit" id="sBtn">Create accounts and open the calendar</button>
+  </form>
+</div>
+
+<header class="topbar" id="topbar">
+  <button class="iconbtn ghost" id="sideBtn" title="Show or hide the left panel" aria-label="Toggle left panel">☰</button>
+  <div class="brand hide-s"><span class="dot"></span>Work &amp; Travel <small id="ownerLbl"></small></div>
+  <div class="nav">
+    <button id="prev" title="Previous (←)" aria-label="Previous">‹</button>
+    <button id="today" title="Today (T)">Today</button>
+    <button id="next" title="Next (→)" aria-label="Next">›</button>
+    <h1 id="title"></h1>
+  </div>
+  <div class="dropdown" id="tzWrap">
+    <button id="tzBtn" title="Active time zone: times are entered and shown in it" aria-haspopup="true">🌍 <span id="tzLbl"></span> ▾</button>
+    <div class="menu" id="tzMenu" role="menu"></div>
+  </div>
+  <div class="grow" id="qaWrap">
+    <span class="qa-ico">＋</span>
+    <input type="text" id="qa" placeholder="Quick add: Meeting tue 10-12 #Project @Brussels  ·  Draft text by fri ~2h p1" autocomplete="off" aria-label="Quick add">
+    <div id="qaPrev" role="status"></div>
+  </div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="searchBtn" title="Search (Ctrl+K or /)" aria-label="Search">🔍</button>
+  <div class="seg" id="viewSeg" role="tablist" aria-label="View">
+    <button data-view="day" title="Day (D)">Day</button>
+    <button data-view="3day" title="3 days (3)">3 days</button>
+    <button data-view="week" title="Week (W)">Week</button>
+    <button data-view="month" title="Month (M)">Month</button>
+    <button data-view="agenda" title="Agenda (A)">Agenda</button>
+    <button data-view="board" title="Tasks board (B)">Board</button>
+  </div>
+  <div class="dropdown" data-ed>
+    <button class="primary" id="newBtn" title="New (N)">＋<span class="lbl-l"> New</span> ▾</button>
+    <div class="menu" id="newMenu">
+      <button data-new="event">📅 Event</button>
+      <button data-new="task">☑ Task</button>
+      <button data-new="project">📁 Project</button>
+      <hr>
+      <button data-new="template">🧩 From a template…</button>
+      <button data-new="plan">🗓 Plan my day…</button>
+    </div>
+  </div>
+  <div class="dropdown">
+    <button id="repBtn" title="Reports">📊<span class="lbl-l"> Reports</span> ▾</button>
+    <div class="menu" id="repMenu">
+      <button data-rep="daily">Daily agenda</button>
+      <button data-rep="eod">End-of-day summary</button>
+      <button data-rep="weekly">Weekly review</button>
+      <button data-rep="project">Project report</button>
+      <button data-rep="time">Time allocation</button>
+      <button data-rep="trips">✈ Trips</button>
+    </div>
+  </div>
+  <span id="timerSlot"></span>
+  <button class="iconbtn bell" id="bellBtn" title="Notifications" aria-label="Notifications">🔔<span class="cnt" id="bellCnt" hidden></span></button>
+  <div class="filebox">
+    <span id="saveState"></span>
+    <span id="userBadge" class="badge hide-s"></span>
+    <button class="iconbtn ghost" id="tasksBtn" title="Show or hide the tasks panel" aria-label="Toggle tasks panel">☑</button>
+    <button id="menuBtn" title="More">⋯</button>
+    <div class="menu" id="menu">
+      <button data-act="settings">⚙ Settings…</button>
+      <button data-act="refresh">↻ Reload latest</button>
+      <button data-act="print">🖨 Print this view</button>
+      <button data-act="help">⌨ Keyboard shortcuts (?)</button>
+      <hr>
+      <button data-act="icsexp">📤 Export calendar file (.ics)…</button>
+      <button data-act="icsimp" data-ed>📥 Import calendar file (.ics)…</button>
+      <button data-act="csvimp" data-ed>📥 Import tasks from CSV…</button>
+      <hr data-ed>
+      <button data-act="owner" data-ed>✎ Set calendar owner name</button>
+      <button data-act="accounts" data-ed>👥 User accounts &amp; passwords…</button>
+      <button data-act="history" data-ed>🕘 Earlier versions…</button>
+      <button data-act="export">⬇ Export backup (.json)…</button>
+      <button data-act="import" data-ed>⬆ Restore / import backup…</button>
+      <hr>
+      <button data-act="signout">⎋ Sign out</button>
+    </div>
+  </div>
+</header>
+
+<div id="banner"></div>
+<div class="layout">
+  <aside id="side" aria-label="Calendars and projects"></aside>
+  <main id="main"></main>
+  <aside id="tasks" aria-label="Tasks"></aside>
+</div>
+
+<div id="selbar"></div>
+<div id="scrim"></div>
+<aside id="drawer" aria-label="Day details"></aside>
+<div id="toasts" aria-live="polite"></div>
+<div id="focus" role="dialog" aria-label="Focus mode"></div>
+<div id="printArea"></div>
+<input type="file" id="fileInput" hidden>

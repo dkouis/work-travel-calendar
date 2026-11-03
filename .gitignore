@@ -1,0 +1,11 @@
+# Live calendar data, accounts, sessions and backups must never be committed
+site/data/*
+!site/data/.htaccess
+!site/data/index.html
+# Build and test output
+build-app.js
+tests/shots/
+__pycache__/
+*.pyc
+testsrv/
+.DS_Store

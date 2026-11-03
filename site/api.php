@@ -1,0 +1,326 @@
+<?php
+/* ============================================================
+   Work & Travel Calendar — server API (PHP 7.4+)
+   All data lives in the data/ folder next to this file.
+   Data files are .php files that stop immediately when requested
+   from a browser, so they can't be downloaded even on servers that
+   ignore data/.htaccess.
+   ============================================================ */
+declare(strict_types=1);
+
+const DATA_DIR      = __DIR__ . '/data';
+const BACKUP_DIR    = DATA_DIR . '/backups';
+const SESSION_DIR   = DATA_DIR . '/sessions';
+const KEEP_BACKUPS  = 200;            // newest backups kept on the server
+const MAX_BODY      = 3000000;        // 3 MB request limit
+const REMEMBER_DAYS = 30;
+const IDLE_HOURS    = 12;             // sign-out after this long without "keep me signed in"
+const GUARD         = "<?php http_response_code(404); exit; __halt_compiler();\n";
+
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+header('X-Content-Type-Options: nosniff');
+
+function out($val, int $code = 200): void { http_response_code($code); echo json_encode($val, JSON_UNESCAPED_UNICODE); exit; }
+function fail(string $msg, int $code = 400, array $extra = []): void { out(['error' => $msg] + $extra, $code); }
+
+/* ---------- storage ---------- */
+function ensure_dirs(): void {
+  foreach ([DATA_DIR, BACKUP_DIR, SESSION_DIR] as $d) {
+    if (!is_dir($d) && !@mkdir($d, 0700, true)) fail('The server cannot create the folder "' . basename($d) . '". Make the data folder writable (permissions 755 or 775).', 500);
+    if (!is_writable($d)) fail('The server cannot write to the folder "' . basename($d) . '". Make it writable (permissions 755 or 775).', 500);
+  }
+}
+function store_path(string $name): string { return DATA_DIR . '/' . $name . '.php'; }
+function read_file_json(string $f) {
+  if (!is_file($f)) return null;
+  $s = (string)file_get_contents($f);
+  $p = strpos($s, "\n");
+  $v = json_decode($p === false ? '' : substr($s, $p + 1), true);
+  return is_array($v) ? $v : null;
+}
+function write_file_json(string $f, $val): void {
+  // JSON_HEX_TAG turns < and > into < / >, so stored text can never form PHP tags.
+  $json = json_encode($val, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_PRETTY_PRINT);
+  if ($json === false) fail('Could not encode data.', 500);
+  $tmp = $f . '.tmp' . bin2hex(random_bytes(4));
+  if (file_put_contents($tmp, GUARD . $json, LOCK_EX) === false) fail('Could not write to the data folder.', 500);
+  @chmod($tmp, 0600);
+  if (!@rename($tmp, $f)) { @unlink($tmp); fail('Could not save the file.', 500); }
+}
+function store_read(string $name) { return read_file_json(store_path($name)); }
+function store_write(string $name, $val): void { write_file_json(store_path($name), $val); }
+
+/* One lock for everything that reads-then-writes. */
+function with_lock(callable $fn) {
+  $h = fopen(DATA_DIR . '/.lock', 'c');
+  if (!$h) fail('Could not lock the data folder.', 500);
+  flock($h, LOCK_EX);
+  try { return $fn(); } finally { flock($h, LOCK_UN); fclose($h); }
+}
+
+function users(): array { $u = store_read('users'); return is_array($u) && isset($u['users']) ? $u['users'] : []; }
+function find_user(array $list, string $name): ?array {
+  foreach ($list as $u) if (strcasecmp($u['user'], $name) === 0) return $u;
+  return null;
+}
+function pw_stamp(array $u): string { return substr(hash('sha256', $u['hash']), 0, 16); }
+
+function calendar(): array {
+  $c = store_read('calendar');
+  if (!$c) $c = ['rev' => 0, 'by' => '', 'saved' => '', 'data' => ['version' => 1, 'owner' => '', 'days' => new stdClass(), 'monthNotes' => new stdClass()]];
+  return $c;
+}
+function backup_current(array $cal): void {
+  if (empty($cal['rev'])) return;
+  $name = 'cal-' . gmdate('Ymd-His') . '-r' . (int)$cal['rev'] . '.php';
+  write_file_json(BACKUP_DIR . '/' . $name, $cal);
+  $all = glob(BACKUP_DIR . '/cal-*.php') ?: [];
+  rsort($all);
+  foreach (array_slice($all, KEEP_BACKUPS) as $old) @unlink($old);
+}
+
+/* ---------- session ---------- */
+function start_session(?bool $remember = null): void {
+  if (session_status() === PHP_SESSION_ACTIVE) return;
+  session_save_path(SESSION_DIR);
+  ini_set('session.gc_maxlifetime', (string)(REMEMBER_DAYS * 86400));
+  ini_set('session.use_strict_mode', '1');
+  ini_set('session.gc_probability', '1');
+  ini_set('session.gc_divisor', '100');
+  session_name('WTCSESS');
+  $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+  $path = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/\\') . '/';
+  session_set_cookie_params(['lifetime' => $remember ? REMEMBER_DAYS * 86400 : 0, 'path' => $path, 'secure' => $https, 'httponly' => true, 'samesite' => 'Lax']);
+  session_start();
+}
+function current_user(): ?array {
+  start_session();
+  if (empty($_SESSION['user'])) return null;
+  $u = find_user(users(), $_SESSION['user']);
+  $limit = !empty($_SESSION['remember']) ? REMEMBER_DAYS * 86400 : IDLE_HOURS * 3600;
+  if (!$u || ($_SESSION['pw'] ?? '') !== pw_stamp($u) || time() - (int)($_SESSION['seen'] ?? 0) > $limit) {
+    $_SESSION = []; session_destroy(); return null;      // removed, password changed elsewhere, or expired
+  }
+  $_SESSION['seen'] = time();
+  return $u;
+}
+/* setcookie() accepts only expires/path/domain/secure/httponly/samesite. Passing
+   session_get_cookie_params() directly also passes "lifetime", which PHP 8 rejects
+   with a fatal error (HTTP 500 on sign-in with "keep me signed in", and on sign-out). */
+function set_session_cookie(string $value, int $expires): void {
+  $p = session_get_cookie_params();
+  setcookie(session_name() ?: 'WTCSESS', $value, [
+    'expires'  => $expires,
+    'path'     => $p['path'] ?? '/',
+    'domain'   => $p['domain'] ?? '',
+    'secure'   => !empty($p['secure']),
+    'httponly' => !empty($p['httponly']),
+    'samesite' => $p['samesite'] ?? 'Lax',
+  ]);
+}
+function sign_in(array $u, bool $remember): void {
+  session_write_close();
+  start_session($remember);
+  session_regenerate_id(true);
+  $_SESSION['user'] = $u['user'];
+  $_SESSION['pw'] = pw_stamp($u);
+  $_SESSION['remember'] = $remember;
+  $_SESSION['seen'] = time();
+  $_SESSION['token'] = bin2hex(random_bytes(16));
+  if ($remember) set_session_cookie(session_id(), time() + REMEMBER_DAYS * 86400);
+}
+function me_info(?array $u): array {
+  return $u ? ['user' => $u['user'], 'role' => $u['role'], 'token' => $_SESSION['token'] ?? ''] : ['user' => null];
+}
+function require_user(bool $editor = false): array {
+  $u = current_user();
+  if (!$u) fail('Please sign in again.', 401);
+  if ($_SERVER['REQUEST_METHOD'] === 'POST' && !hash_equals($_SESSION['token'] ?? '', $_SERVER['HTTP_X_WTC_TOKEN'] ?? '')) fail('Your session is out of date. Reload the page.', 403);
+  if ($editor && $u['role'] !== 'editor') fail('Your account can only view the calendar.', 403);
+  return $u;
+}
+
+/* ---------- login throttling (per IP) ---------- */
+function throttle_check(): void {
+  $t = store_read('throttle') ?: [];
+  $ip = $_SERVER['REMOTE_ADDR'] ?? '?';
+  $recent = array_filter($t[$ip] ?? [], fn($x) => $x > time() - 900);
+  if (count($recent) >= 8) fail('Too many failed sign-in attempts. Please wait 15 minutes and try again.', 429);
+}
+function throttle_fail(): void {
+  with_lock(function () {
+    $t = store_read('throttle') ?: [];
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '?';
+    foreach ($t as $k => $v) { $t[$k] = array_values(array_filter($v, fn($x) => $x > time() - 900)); if (!$t[$k]) unset($t[$k]); }
+    $t[$ip][] = time();
+    store_write('throttle', $t);
+  });
+  usleep(800000);
+}
+
+/* ---------- validation ---------- */
+function clean_name($s): string {
+  $s = trim((string)$s);
+  if ($s === '' || mb_strlen($s) > 40 || !preg_match('/^[\p{L}\p{N}._@-]+$/u', $s)) fail('Usernames can use letters, numbers and . _ @ - (no spaces), up to 40 characters.');
+  return $s;
+}
+function check_pass($p): string {
+  $p = (string)$p;
+  if (strlen($p) < 6) fail('Passwords need at least 6 characters.');
+  if (strlen($p) > 200) fail('That password is too long.');
+  return $p;
+}
+function clean_calendar($d): array {
+  if (!is_array($d) || !isset($d['days']) || !is_array($d['days'])) fail('The calendar data is not valid.');
+  unset($d['accounts']);
+  $d['version'] = 1;
+  $d['owner'] = mb_substr((string)($d['owner'] ?? ''), 0, 120);
+  if (!$d['days']) $d['days'] = new stdClass();
+  if (empty($d['monthNotes']) || !is_array($d['monthNotes'])) $d['monthNotes'] = new stdClass();
+  return $d;
+}
+function body(): array {
+  $raw = file_get_contents('php://input', false, null, 0, MAX_BODY + 1);
+  if ($raw === false || strlen($raw) > MAX_BODY) fail('The request is too large.', 413);
+  $j = json_decode($raw, true);
+  if (!is_array($j)) fail('Invalid request.');
+  return $j;
+}
+
+/* ============================================================ */
+ensure_dirs();
+$a = $_GET['a'] ?? '';
+$post = $_SERVER['REQUEST_METHOD'] === 'POST';
+
+switch ($a) {
+
+  case 'me':
+    if (!users()) out(['setup' => true, 'user' => null]);
+    out(me_info(current_user()));
+
+  case 'setup':                                   // first run only: create the first editor + viewer
+    if (!$post) fail('Use POST.', 405);
+    $b = body();
+    $res = with_lock(function () use ($b) {
+      if (users()) fail('Accounts already exist. Please sign in.', 409);
+      $list = [];
+      foreach (['editor', 'viewer'] as $role) {
+        $name = clean_name($b[$role]['user'] ?? '');
+        if (find_user($list, $name)) fail('The two usernames must be different.');
+        $list[] = ['user' => $name, 'role' => $role, 'hash' => password_hash(check_pass($b[$role]['pass'] ?? ''), PASSWORD_DEFAULT)];
+      }
+      store_write('users', ['users' => $list]);
+      return $list[0];
+    });
+    sign_in($res, false);
+    out(me_info($res));
+
+  case 'login':
+    if (!$post) fail('Use POST.', 405);
+    throttle_check();
+    $b = body();
+    $u = find_user(users(), trim((string)($b['user'] ?? '')));
+    if (!$u || !password_verify((string)($b['pass'] ?? ''), $u['hash'])) { throttle_fail(); fail('Wrong username or password.', 401); }
+    if (password_needs_rehash($u['hash'], PASSWORD_DEFAULT)) {
+      with_lock(function () use (&$u, $b) {
+        $list = users();
+        foreach ($list as &$x) if ($x['user'] === $u['user']) { $x['hash'] = password_hash((string)$b['pass'], PASSWORD_DEFAULT); $u = $x; }
+        store_write('users', ['users' => $list]);
+      });
+    }
+    sign_in($u, !empty($b['remember']));
+    out(me_info($u));
+
+  case 'logout':
+    start_session();
+    $_SESSION = [];
+    if (session_status() === PHP_SESSION_ACTIVE) session_destroy();
+    set_session_cookie('', time() - 3600);
+    out(['ok' => true]);
+
+  case 'load':                                    // ?since=REV returns {unchanged:true} if nothing new
+    require_user();
+    session_write_close();
+    $c = calendar();
+    if (isset($_GET['since']) && (int)$_GET['since'] === (int)$c['rev']) out(['rev' => (int)$c['rev'], 'unchanged' => true]);
+    out(['rev' => (int)$c['rev'], 'by' => $c['by'], 'saved' => $c['saved'], 'data' => $c['data']]);
+
+  case 'save':
+    if (!$post) fail('Use POST.', 405);
+    $u = require_user(true);
+    session_write_close();
+    $b = body();
+    $data = clean_calendar($b['data'] ?? null);
+    $base = (int)($b['rev'] ?? -1);
+    $res = with_lock(function () use ($u, $data, $base) {
+      $c = calendar();
+      if ($base !== (int)$c['rev']) out(['error' => 'conflict', 'rev' => (int)$c['rev'], 'by' => $c['by'], 'saved' => $c['saved']], 409);
+      // a new backup at most every 10 minutes per editor, or when a different person saves
+      $last = glob(BACKUP_DIR . '/cal-*.php') ?: []; rsort($last);
+      if (!$last || $c['by'] !== $u['user'] || time() - filemtime($last[0]) > 600) backup_current($c);
+      $n = ['rev' => (int)$c['rev'] + 1, 'by' => $u['user'], 'saved' => gmdate('c'), 'data' => $data];
+      store_write('calendar', $n);
+      return $n;
+    });
+    out(['rev' => $res['rev'], 'saved' => $res['saved']]);
+
+  case 'users':                                   // editor: list (GET) or replace (POST) accounts
+    $me = require_user(true);
+    if (!$post) out(['users' => array_map(fn($u) => ['user' => $u['user'], 'role' => $u['role']], users())]);
+    $b = body();
+    $rows = $b['users'] ?? null;
+    if (!is_array($rows) || !$rows) fail('Add at least one account.');
+    $res = with_lock(function () use ($rows, $me) {
+      $old = users(); $list = [];
+      foreach ($rows as $r) {
+        $name = clean_name($r['user'] ?? '');
+        if (find_user($list, $name)) fail('Usernames must be different ("' . $name . '" is used twice).');
+        $role = ($r['role'] ?? '') === 'editor' ? 'editor' : 'viewer';
+        $prev = isset($r['orig']) ? find_user($old, (string)$r['orig']) : null;
+        $pass = (string)($r['pass'] ?? '');
+        if ($pass !== '') $hash = password_hash(check_pass($pass), PASSWORD_DEFAULT);
+        elseif ($prev) $hash = $prev['hash'];
+        else fail('The new account "' . $name . '" needs a password.');
+        $list[] = ['user' => $name, 'role' => $role, 'hash' => $hash];
+      }
+      if (!array_filter($list, fn($u) => $u['role'] === 'editor')) fail('Keep at least one Editor account, otherwise nobody can change the calendar.');
+      store_write('users', ['users' => $list]);
+      // keep the person who made the change signed in (even if they renamed themselves or changed their password)
+      foreach ($rows as $i => $r) if (isset($r['orig']) && strcasecmp((string)$r['orig'], $me['user']) === 0) return $list[$i];
+      return null;
+    });
+    if ($res) { $_SESSION['user'] = $res['user']; $_SESSION['pw'] = pw_stamp($res); }
+    out(['ok' => true, 'me' => $res ? me_info($res) : ['user' => null]]);
+
+  case 'history':                                 // editor: list server backups
+    require_user(true);
+    session_write_close();
+    $files = glob(BACKUP_DIR . '/cal-*.php') ?: []; rsort($files);
+    $list = [];
+    foreach ($files as $f) {
+      $c = read_file_json($f); if (!$c) continue;
+      $list[] = ['id' => basename($f, '.php'), 'rev' => (int)$c['rev'], 'by' => $c['by'], 'saved' => $c['saved'], 'days' => count((array)($c['data']['days'] ?? []))];
+    }
+    out(['backups' => $list]);
+
+  case 'restore':
+    if (!$post) fail('Use POST.', 405);
+    $u = require_user(true);
+    session_write_close();
+    $id = (string)(body()['id'] ?? '');
+    if (!preg_match('/^cal-\d{8}-\d{6}-r\d+$/', $id)) fail('Unknown backup.');
+    $old = read_file_json(BACKUP_DIR . '/' . $id . '.php');
+    if (!$old) fail('That backup could not be read.', 404);
+    $res = with_lock(function () use ($u, $old) {
+      $c = calendar();
+      backup_current($c);
+      $n = ['rev' => (int)$c['rev'] + 1, 'by' => $u['user'], 'saved' => gmdate('c'), 'data' => clean_calendar($old['data'])];
+      store_write('calendar', $n);
+      return $n;
+    });
+    out(['rev' => $res['rev']]);
+
+  default:
+    fail('Unknown action.', 404);
+}

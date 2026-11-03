@@ -1,0 +1,4 @@
+# Open the PHP calendar (not an old index.html) when the folder address is visited.
+DirectoryIndex index.php index.html
+# Installable app file
+AddType application/manifest+json .webmanifest

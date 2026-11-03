@@ -1,0 +1,84 @@
+WORK & TRAVEL CALENDAR — UPGRADE TO v2 (tasks, events, projects, reminders, reports)
+
+WHAT TO UPLOAD
+  Upload these files to the calendar folder on your server, replacing the old ones:
+    index.php, api.php, sw.js, manifest.webmanifest, icon.svg, icon-192.png,
+    icon-512.png, .htaccess
+  Do NOT upload or replace the data folder: it holds your live calendar and
+  accounts.
+  (Show hidden files in your FTP program so .htaccess is uploaded.)
+
+BEFORE YOU UPLOAD (recommended)
+  Sign in to the current calendar and use ⋯ → Export backup (.json).
+  The server also keeps earlier versions (⋯ → Earlier versions).
+
+FIRST OPEN
+  Sign in as the editor. The calendar is upgraded automatically: your days,
+  work status, locations, flights, comments and month notes stay exactly as
+  they are, and projects, events, tasks and reminders become available.
+  Viewers can keep using the old link; they see the new views read-only.
+
+FIRST STEPS
+  1. ⚙ Settings → General: check work hours (default 09:00–18:00, Mon–Fri).
+  2. ⚙ Settings → Calendars & privacy: set a passphrase for Personal items.
+     Personal items are encrypted in your browser; viewers only see "Busy".
+     The passphrase cannot be recovered — keep it safe.
+  3. ⚙ Settings → Reminders & notifications: turn on desktop notifications.
+  4. Create projects with ＋ New → Project, or the ＋ next to WORK/PERSONAL.
+  5. Try the quick-add box:  Meeting WG tue 10-12:30 #Council @Brussels
+                             Draft text by fri 17:00 ~4h p1
+  6. Drag tasks from the right panel onto the week grid to schedule them.
+  Press ? in the app for all keyboard shortcuts.
+
+REMINDERS
+  Reminders pop up while the calendar is open in a browser tab (it can be in
+  the background). To keep it running, install it as an app (Chrome/Edge:
+  "Install app" in the address bar; iPhone: Share → Add to Home Screen).
+  Reminders missed while it was closed are shown the next time you open it.
+  For alerts on your phone when the app is closed, export a .ics file
+  (⋯ → Export calendar file) and import it into your phone's calendar.
+
+GOOD TO KNOW
+  - Changes still save automatically ("Saved ✓"). If two editors save at the
+    same time, the changes are combined; an item changed by both keeps the
+    newer version and you see a note.
+  - Ctrl+Z undoes the last change (up to 50). Deleted items stay in
+    ⚙ Settings → Trash for 30 days.
+  - The server accepts up to 3 MB of calendar data (several years of use).
+    ⚙ Settings → Data → Archive moves old items to a file if it gets close.
+  - Use https:// so passwords travel encrypted (also needed for the
+    installable app).
+
+FLIGHTS, HALF DAYS AND TIME ZONES (update 1 Nov 2026)
+  - Active time zone: the 🌍 button at the top. New events, tasks and
+    appointments are entered in it, and everything is shown in it. When you
+    travel, switch it (e.g. to Brussels) and all items move to local time.
+    Each item keeps the zone it was entered in, so nothing is lost. When your
+    flights show you are in another city, the app offers to switch.
+    The choice is per device and per user.
+  - Flights appear as blocks in the Day and Week grids. Defaults, in the local
+    time of the departure city:
+      Morning 08:00–12:00, alarm 06:00
+      Noon    16:00–20:00, alarm 14:00
+      Night   20:00–24:00, alarm 17:30
+    Open a flight's day to change its departure, arrival or alarm time, or to
+    switch the alarm off. "↺ default" restores the defaults. Flights saved as
+    "Evening" in the old app are shown as Noon.
+  - The working day is Morning 08:30–13:00 and Evening 13:00–17:30
+    (⚙ Settings → General). Leave, sick or holiday on one half only blocks
+    that half: warnings, free-slot search and muted reminders follow it.
+  - Titles of events and tasks are shown in red in their details.
+
+3 DAYS VIEW
+  The "3 days" button (or key 3) shows the selected day and the next two
+  as a time grid; ‹ › move by 3 days.
+
+SIGN-IN FIX (2 Nov 2026)
+  api.php: signing in with "Keep me signed in" ticked, and signing out, gave
+  "The server answered with an error (500)". Upload the new api.php to fix it.
+  It changes nothing in your data or accounts.
+
+IMPORT FIX (2 Nov 2026)
+  index.php: "Import calendar file (.ics)" showed the events but "Import
+  selected" did nothing. Fixed. Events that give their length as a duration
+  (common in Google and Apple calendar files) now get the right end time.
