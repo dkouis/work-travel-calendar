@@ -100,8 +100,7 @@ function openEventEditor(id, draft, occKey){
     <label>Attendees</label><input type="text" name="attendees" value="${esc(e.attendees.join(', '))}" placeholder="Names, separated by commas" ${ro?'disabled':''}>
     <div class="sec">Reminders</div><div class="full" id="evRem"></div>
     <div class="sec">Notes &amp; links</div>
-    <textarea class="full" name="notes" rows="4" placeholder="Agenda, meeting notes… (supports **bold**, *italic*, - lists, links)" ${ro?'disabled':''}>${esc(e.notes)}</textarea>
-    <div class="full md hint" id="evMd"></div>
+    ${mdEditorHTML('notes', e.notes, {ro, rows:7, placeholder:'Agenda, meeting notes… Markdown: **bold**, *italic*, # heading, - list, [link](https://…)'})}
     <label>Links</label><div class="list-edit" id="evLinks"></div>
     <label>Linked tasks</label><div class="list-edit" id="evTasks"></div>
     <label>Tags</label><input type="text" name="tags" value="${esc(e.tags.join(', '))}" placeholder="e.g. council, budget" ${ro?'disabled':''}>
@@ -136,7 +135,7 @@ function openEventEditor(id, draft, occKey){
   const rems=clone(e.reminders);
   const drawRems=()=>{ $('#evRem',d).innerHTML=ro?(rems.map(r=>`<div class="hint">🔔 ${esc((OFFSETS.find(o=>o[0]===+r.offsetMin)||[0,fmtDur(r.offsetMin)+' before'])[1])}</div>`).join('')||'<span class="hint">None</span>'):remFormHTML(rems); if(!ro) bindRems($('#evRem',d),rems,null,drawRems); };
   drawRems();
-  const notes=$('[name=notes]',F); const drawMd=()=>{ $('#evMd',d).innerHTML=notes.value?md(notes.value):''; }; notes.oninput=drawMd; drawMd();
+  bindMdEditor(d);
   const links=clone(e.links);
   const drawLinks=()=>{ $('#evLinks',d).innerHTML=links.map((l,i)=>ro?`<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label||l.url)}</a>`:`<div class="li"><input type="text" data-l="label" data-i="${i}" value="${esc(l.label)}" placeholder="Label" style="max-width:150px"><input type="text" data-l="url" data-i="${i}" value="${esc(l.url)}" placeholder="https://…"><button type="button" class="ghost" data-ldel="${i}">✕</button></div>`).join('')+(ro?'':'<button type="button" data-ladd style="align-self:flex-start">＋ Link</button>');
     if(ro) return; $$('[data-l]',d).forEach(x=>x.oninput=()=>links[+x.dataset.i][x.dataset.l]=x.value); $$('[data-ldel]',d).forEach(b=>b.onclick=()=>{ links.splice(+b.dataset.ldel,1); drawLinks(); }); $('[data-ladd]',d).onclick=()=>{ links.push({label:'',url:''}); drawLinks(); }; };
@@ -233,7 +232,7 @@ function openTaskEditor(id, draft, opts={}){
     <label>Repeat</label>${rrFormHTML(t.rrule, t.dueDate||todayKey())}
     <div class="full hint">Repeating tasks need a due date; when you complete one, the next one is created.</div>
     <div class="sec">Reminders</div><div class="full" id="tkRem"></div>
-    <label>Notes</label><textarea name="notes" rows="3" ${ro?'disabled':''}>${esc(t.notes)}</textarea>
+    <div class="sec">Notes</div>${mdEditorHTML('notes', t.notes, {ro, rows:5, placeholder:'Details, links, steps… Markdown: **bold**, *italic*, - list, [link](https://…)'})}
     <label>Tags</label><input type="text" name="tags" value="${esc(t.tags.join(', '))}" placeholder="e.g. drafting" ${ro?'disabled':''}>
     <label>Privacy</label><label class="hint"><input type="checkbox" name="private" ${t.private?'checked':''} ${ro?'disabled':''}> Private — hide from viewers (needs the Personal passphrase)</label>
   </form>
@@ -243,7 +242,7 @@ function openTaskEditor(id, draft, opts={}){
     <span class="sp"></span><button data-close>${ro?'Close':'Cancel'}</button>${editable?'<button class="primary" data-a="save">Save</button>':''}
   </div>`, {size:'mid', focus:'[name=title]'});
   const F=$('form',d);
-  bindCalProj(F); bindRR(F);
+  bindCalProj(F); bindRR(F); bindMdEditor(d);
   const v=n=>$(`[name=${n}]`,F).value;
   const est=()=>((+v('estH')||0)*60+(+v('estM')||0))||null;
   // blocks

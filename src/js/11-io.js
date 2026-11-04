@@ -349,7 +349,6 @@ function openSettings(tab){
       <label>All-day reminders at</label><input type="time" name="allDayRemTime" value="${s.allDayRemTime}" ${ro}>
       <div class="sec">This device</div>
       <label>Hour height</label><div class="row"><input type="range" min="24" max="96" step="4" data-p="hourPx" value="${prefs.hourPx}"> <span class="hint">${prefs.hourPx}px</span></div>
-      <label>Second time zone</label><select data-p="secondTz"><option value="">none</option>${TZ_LIST.map(z=>`<option ${prefs.secondTz===z?'selected':''}>${z}</option>`).join('')}</select>
       <label>Offline copy</label><label class="hint"><input type="checkbox" data-p="offlineCopy" ${prefs.offlineCopy?'checked':''}> Keep a copy on this device so the calendar opens without internet (read-only). Don’t use on shared computers.</label>
       <label>Install</label><div class="hint">${installHint()}</div></form>`;
     if(setTab==='notify') body=`<form class="frm" data-sf>

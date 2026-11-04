@@ -82,3 +82,11 @@ IMPORT FIX (2 Nov 2026)
   index.php: "Import calendar file (.ics)" showed the events but "Import
   selected" did nothing. Fixed. Events that give their length as a duration
   (common in Google and Apple calendar files) now get the right end time.
+
+VIEWS AND NOTES (5 Nov 2026)
+  - The "2nd zone" option was removed; the 🌍 menu at the top sets the time zone.
+  - "Hide weekends" (tick box above the calendar) hides Saturday and Sunday in
+    3 days, Week (time grid and compact) and Month. It is saved per device.
+  - NOTES IN MARKDOWN: event and task notes use Markdown (CommonMark), with a
+    toolbar (bold, italic, strikethrough, heading, quote, code, lists, link,
+    table, line) and Write / Preview tabs. Ctrl+B, Ctrl+I and Ctrl+K work too.

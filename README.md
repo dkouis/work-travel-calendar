@@ -6,10 +6,11 @@ It runs on any PHP 7.4+ web host: `index.php` is the app, `api.php` handles sign
 ## Features
 - Daily work status (morning 08:30–13:00 / evening 13:00–17:30), location and flights (Morning 08–12, Noon 16–20, Night 20–24, with alarms)
 - Work and Personal calendars, projects, events, tasks scheduled as time blocks
-- Day, 3-day, Week, Month, Agenda and Board views; drag and drop
+- Day, 3-day, Week, Month, Agenda and Board views; drag and drop; option to hide weekends
 - Active time zone (🌍 menu): items entered and shown in local time while travelling
 - Reminders, popups, desktop notifications, daily agenda and weekly review
 - Reports: daily, end of day, weekly, project, time allocation, trips (print, CSV, .ics)
+- Notes in Markdown (CommonMark) with a formatting toolbar and preview
 - Quick add in English and Greek, templates, search, keyboard shortcuts, undo
 - Editor and viewer accounts; Personal items encrypted in the browser with a passphrase
 - .ics import/export (Outlook, Google), CSV task import, backups and server version history
@@ -40,6 +41,7 @@ FOLDERS
               05 time-grid drag/drop and keyboard
               06 items: popover, day panel, bulk actions
               07 editors: event, task, project, project page
+              06b Markdown notes: renderer and toolbar editor
               08 planning: free slots, auto-schedule, plan my day, timer, focus
               09 reminders and notifications
               10 reports
@@ -58,3 +60,7 @@ FOLDERS
 TO CHANGE THE APP
   Edit files in src/, run python3 build.py, then upload site/index.php.
 ```
+
+## Third-party code
+
+`src/vendor/markdown-it.min.js` — [markdown-it](https://github.com/markdown-it/markdown-it) 14.1.0, MIT licence (`src/vendor/markdown-it.LICENSE`). `build.py` includes it in `site/index.php`.

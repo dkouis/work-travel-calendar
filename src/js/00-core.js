@@ -204,7 +204,7 @@ const DEFAULT_SETTINGS = {
   defaultEventMin:60, defaultBlockMin:60, showBusy:true, allDayRemTime:'09:00', travelReminders:true, archiveMonths:12
 };
 const DEFAULT_PREFS = {
-  hourPx:44, density:'comfortable', colorBy:'project', secondTz:'', showLegend:true, sidePanel:true, tasksPanel:true,
+  hourPx:44, density:'comfortable', colorBy:'project', hideWeekends:false, showLegend:true, sidePanel:true, tasksPanel:true,
   desktop:false, sound:true, quietStart:'22:00', quietEnd:'07:30', digestTime:'08:30', digest:true,
   reviewDay:4, reviewTime:'16:00', review:true, eod:false, eodTime:'18:00', snooze:[5,10,30,60,'tomorrow'],
   activeTz:'', offlineCopy:false, tpSort:'due', tpGroup:'none', savedFilters:[]

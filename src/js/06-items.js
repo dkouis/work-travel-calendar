@@ -167,18 +167,6 @@ function openOccPopover(id, oc, kind, anchorEl){
   act('dup',()=>{ const c=duplicateItem(it); toast('Duplicated',{actions:[['Edit',()=> c.type==='event'?openEventEditor(c.id):openTaskEditor(c.id)]]}); });
   act('del',()=>deleteOcc(id,oc,kind));
 }
-/* tiny Markdown: **bold**, *italic*, - lists, links */
-function md(s){
-  const inl=t=>esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i>$1</i>').replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>').replace(/(^|\s)(https?:\/\/[^\s<]+)/g,'$1<a href="$2" target="_blank" rel="noopener">$2</a>');
-  const out=[]; let ul=false;
-  for(const line of String(s).split('\n')){
-    const m=/^\s*[-*]\s+(.*)/.exec(line);
-    if(m){ if(!ul){ out.push('<ul>'); ul=true; } out.push('<li>'+inl(m[1])+'</li>'); }
-    else { if(ul){ out.push('</ul>'); ul=false; } if(line.trim()) out.push('<p>'+inl(line)+'</p>'); }
-  }
-  if(ul) out.push('</ul>');
-  return out.join('');
-}
 
 /* ---------- day drawer (status, location, flights, comments + events & tasks) ---------- */
 function openDrawer(k){ openDay=k; renderDrawer(); $('#drawer').classList.add('open'); $('#scrim').classList.add('open'); }

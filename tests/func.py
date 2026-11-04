@@ -1,5 +1,5 @@
 import os
-import asyncio, json, sys, time, re
+import asyncio, json, sys, time, re, datetime
 from playwright.async_api import async_playwright
 BASE='http://127.0.0.1:8099/'
 SH=os.path.join(os.path.dirname(os.path.abspath(__file__)),'shots')+'/'
@@ -25,7 +25,11 @@ async def ev(page, js, arg=None): return await page.evaluate(js, arg)
 async def main():
     async with async_playwright() as pw:
         b=await pw.chromium.launch()
-        mk=lambda: b.new_context(viewport={'width':1440,'height':900}, timezone_id='Europe/Athens', locale='en-GB')
+        async def mk(fixed=True):
+            c=await b.new_context(viewport={'width':1440,'height':900}, timezone_id='Europe/Athens', locale='en-GB')
+            # the suite is written for Sunday 1 Nov 2026 14:00 Athens; time then runs normally
+            if fixed: await c.clock.install(time=datetime.datetime(2026,11,1,12,0,tzinfo=datetime.timezone.utc))
+            return c
         ctx=await mk(); await ctx.grant_permissions(['notifications'],origin=BASE.rstrip('/'))
         page=await ctx.new_page(); errs=[]
         page.on('pageerror',lambda e:errs.append('PAGEERR '+str(e)))
@@ -234,8 +238,8 @@ async def main():
         await page.keyboard.press('Escape')
 
         # ---- merge when two editors save at once ----
-        cA=await mk(); pA=await cA.new_page(); await login(pA,'dkouis','secret123')
-        cB=await mk(); pB=await cB.new_page(); await login(pB,'dkouis','secret123')
+        cA=await mk(False); pA=await cA.new_page(); await login(pA,'dkouis','secret123')
+        cB=await mk(False); pB=await cB.new_page(); await login(pB,'dkouis','secret123')
         await pA.evaluate("()=>{ const e=newEvent({title:'From A', start:'2026-11-10T10:00', end:'2026-11-10T11:00', tz:'Europe/Athens'}); saveNewItem(e); }"); await saved(pA)
         await pB.evaluate("()=>{ const t=newTask({title:'From B', dueDate:'2026-11-11'}); saveNewItem(t); }"); await saved(pB)
         sd=server()['data']
@@ -406,6 +410,61 @@ async def main():
         dup=await page.locator('.dlg tbody input[data-i]:not(:checked)').count()
         await page.keyboard.press('Escape')
         ok('importing the same file again marks all as duplicates', dup==3, dup)
+
+
+        # ---- v2.3: no 2nd zone, hide weekends, Markdown notes ----
+        await ev(page,"()=>{ closeDialog(); closeDialog(); closeDrawer(); prefs.hideWeekends=false; savePrefs(); cursor=fromKey('2026-11-04'); setView('week'); weekCompact=false; render(); }")
+        ok('2nd time zone option removed', await page.locator('[data-tz2]').count()==0 and 'secondTz' not in await ev(page,"JSON.stringify(DEFAULT_PREFS)"))
+        await page.check('[data-hidewe]'); await page.wait_for_timeout(200)
+        cols=await page.eval_on_selector_all('.tg-col','els=>els.map(e=>e.dataset.col)')
+        ok('hide weekends: week grid shows Mon–Fri', cols==['2026-11-02','2026-11-03','2026-11-04','2026-11-05','2026-11-06'], cols)
+        await page.click('[data-wc="1"]'); await page.wait_for_timeout(200)
+        ok('hide weekends: compact week shows 5 days', await page.locator('.week .wcol').count()==5)
+        await page.click('[data-wc="0"]')
+        await page.click('#viewSeg [data-view="month"]'); await page.wait_for_timeout(200)
+        mk=await page.eval_on_selector_all('.month .cell','els=>els.map(e=>e.dataset.k)')
+        wd=await ev(page,"ks=>ks.filter(k=>isWeekend(fromKey(k))).length", mk)
+        ok('hide weekends: month shows only Mon–Fri columns', await page.locator('.month .mhead div').count()==5 and len(mk)%5==0 and wd==0, (len(mk),wd))
+        await ev(page,"()=>{ setView('3day'); cursor=fromKey('2026-11-05'); render(); }"); await page.wait_for_timeout(200)
+        c3=await page.eval_on_selector_all('.tg-col','els=>els.map(e=>e.dataset.col)')
+        await page.click('#next'); await page.wait_for_timeout(150)
+        c3n=await page.eval_on_selector_all('.tg-col','els=>els.map(e=>e.dataset.col)')
+        ok('hide weekends: 3 days skips Sat/Sun (Thu, Fri, Mon) and › moves 3 working days', c3==['2026-11-05','2026-11-06','2026-11-09'] and c3n==['2026-11-10','2026-11-11','2026-11-12'], (c3,c3n))
+        await page.uncheck('[data-hidewe]'); await page.wait_for_timeout(150)
+        ok('weekends shown again when unticked', await page.eval_on_selector_all('.tg-col','els=>els.map(e=>e.dataset.col)')==['2026-11-10','2026-11-11','2026-11-12'] and await ev(page,"!prefs.hideWeekends"))
+        # Markdown rendering (CommonMark, safe)
+        r=await ev(page,"""()=>md('# Title\\n\\nSome **bold** and *it* text with `code`.\\n\\n- one\\n- two\\n\\n1. first\\n2. second\\n\\n> quote\\n\\n[site](https://example.com) and https://example.org\\n\\n<script>alert(1)</script><img src=x onerror=alert(2)>\\n\\n[bad](javascript:alert(3))\\n\\n| a | b |\\n|---|---|\\n| 1 | 2 |\\n\\n~~gone~~')""")
+        checks={'h1':'<h1>Title</h1>' in r,'bold':'<strong>bold</strong>' in r,'em':'<em>it</em>' in r,'code':'<code>code</code>' in r,'ul':'<ul>' in r,'ol':'<ol>' in r,'quote':'<blockquote>' in r,
+                'link new tab':'href="https://example.com" target="_blank" rel="noopener noreferrer"' in r,'autolink':'href="https://example.org"' in r,
+                'no script':'<script' not in r and '&lt;script&gt;' in r,'no img onerror':'<img' not in r,'no javascript: link':'href="javascript' not in r,'table':'<table>' in r,'strike':'<s>gone</s>' in r}
+        ok('Markdown renders CommonMark safely (raw HTML and javascript: links blocked)', all(checks.values()), {k:v for k,v in checks.items() if not v})
+        # editor toolbar
+        await ev(page,"()=>{ closeDialog(); const t=newTask({title:'MD task', dueDate:'2026-11-12'}); saveNewItem(t); openTaskEditor(t.id); }"); await page.wait_for_timeout(300)
+        ta='.dlg .mde textarea[name=notes]'
+        ok('task notes have a formatting toolbar', await page.locator('.dlg .mde-bar button[data-md]').count()>=12)
+        await page.fill(ta,'Plan for the week'); await page.eval_on_selector(ta,'e=>{e.focus(); e.setSelectionRange(9,17);}')
+        await page.click('.dlg [data-md=bold]')
+        v1=await page.input_value(ta)
+        await page.eval_on_selector(ta,'e=>{e.setSelectionRange(e.value.length,e.value.length);}')
+        await page.keyboard.press('Enter'); await page.keyboard.press('Enter')
+        await page.click('.dlg [data-md=ul]'); await page.keyboard.type('first item'); await page.keyboard.press('Enter'); await page.keyboard.type('second item')
+        await page.keyboard.press('Enter'); await page.keyboard.press('Enter'); await page.keyboard.type('Text ')
+        await page.keyboard.press('Control+i'); await page.keyboard.type('x')
+        v2=await page.input_value(ta)
+        ok('toolbar bold wraps selection; lists continue on Enter; Ctrl+I italic', v1=='Plan for **the week**' and '- first item\n- second item\n\nText *x' in v2, (v1,v2))
+        await page.click('.dlg [data-mdtab=preview]'); await page.wait_for_timeout(150)
+        pv=await page.inner_html('.dlg .mdprev')
+        ok('Preview tab renders the notes', '<strong>the week</strong>' in pv and '<li>first item</li>' in pv and await page.locator('.dlg .mde textarea').is_hidden())
+        await page.click('.dlg [data-mdtab=write]'); await page.click('.dlg [data-a=save]'); await saved(page)
+        n=[t for t in server()['data']['tasks'] if t['title']=='MD task'][0]['notes']
+        ok('Markdown notes saved as text', n.startswith('Plan for **the week**') and '- second item' in n, n[:60])
+        await ev(page,"()=>{ const t=data.tasks.find(t=>t.title==='MD task'); t.blocks=[{id:uid('b'),start:'2026-11-12T10:00',end:'2026-11-12T11:00',tz:ACTIVE_TZ,done:false}]; changed(); cursor=fromKey('2026-11-12'); setView('day'); }")
+        await saved(page); await page.locator('.ev[data-ok=block]', has_text='MD task').click(); await page.wait_for_timeout(200)
+        ok('popover shows rendered notes', '<strong>the week</strong>' in await page.inner_html('#pop .md'))
+        await page.keyboard.press('Escape')
+        await ev(page,"()=>{ const e=newEvent({title:'MD event', start:'2026-11-12T12:00', end:'2026-11-12T13:00', tz:ACTIVE_TZ}); saveNewItem(e); openEventEditor(e.id); }"); await page.wait_for_timeout(250)
+        ok('event notes have the same editor', await page.locator('.dlg .mde-bar').count()==1)
+        await page.screenshot(path=SH+'md-editor.png'); await page.keyboard.press('Escape')
 
         # ---- performance with 5,000 items ----
         perf=await ev(page,"""()=>{ const base=fromKey('2026-11-02'); for(let i=0;i<5000;i++){ const d=addDays(base,(i%120)-60), k=key(d), h=8+(i%10); if(i%2) data.events.push(touch(newEvent({title:'Load '+i, start:k+'T'+String(h).padStart(2,'0')+':00', end:k+'T'+String(h).padStart(2,'0')+':45', tz:'Europe/Athens'}))); else data.tasks.push(touch(newTask({title:'Load task '+i, dueDate:k, blocks:[{id:uid('b'),start:k+'T'+String(h).padStart(2,'0')+':00',end:k+'T'+String(h).padStart(2,'0')+':30',tz:'Europe/Athens',done:false}]}))); }

@@ -7,9 +7,17 @@ function setView(v){
   if(prev==='month' && (v==='week'||v==='day'||v==='3day')){ const t=TODAY(); if(t.getMonth()!==cursor.getMonth()||t.getFullYear()!==cursor.getFullYear()) cursor=new Date(cursor.getFullYear(),cursor.getMonth(),1); else cursor=t; }
   renderAll();
 }
+/* Hide Saturday & Sunday (per device) — applies to 3 days, Week and Month */
+function hideWE(){ return !!prefs.hideWeekends; }
+function nextWorkday(d, dir=1){ while(isWeekend(d)) d=addDays(d,dir); return d; }
+function threeDays(){ // the 3 days shown from cursor
+  if(!hideWE()) return [0,1,2].map(i=>addDays(cursor,i));
+  const out=[]; let d=nextWorkday(cursor); while(out.length<3){ if(!isWeekend(d)) out.push(d); d=addDays(d,1); } return out;
+}
+function weekDays(){ const mon=mondayOf(cursor); return [0,1,2,3,4,5,6].map(i=>addDays(mon,i)).filter(d=>!hideWE()||!isWeekend(d)); }
 function visibleRange(){
   if(view==='day') return [cursor, addDays(cursor,1)];
-  if(view==='3day') return [cursor, addDays(cursor,3)];
+  if(view==='3day'){ const ds=threeDays(); return [ds[0], addDays(ds[ds.length-1],1)]; }
   if(view==='week') return [mondayOf(cursor), addDays(mondayOf(cursor),7)];
   if(view==='agenda') return [cursor, addDays(cursor,agendaDays)];
   if(view==='board') return [cursor, addDays(cursor,1)];
@@ -17,7 +25,7 @@ function visibleRange(){
 }
 function move(n){
   if(view==='day') cursor=addDays(cursor,n);
-  else if(view==='3day') cursor=addDays(cursor,3*n);
+  else if(view==='3day'){ if(!hideWE()) cursor=addDays(cursor,3*n); else { let d=nextWorkday(cursor), k=0; while(k<3){ d=addDays(d,n); if(!isWeekend(d)) k++; } cursor=d; } }
   else if(view==='week') cursor=addDays(cursor,7*n);
   else if(view==='agenda') cursor=addDays(cursor,agendaDays*n);
   else if(view==='board') return;
@@ -94,8 +102,8 @@ function render(){
   document.title = 'Work & Travel Calendar' + (data.owner?' — '+data.owner:'');
   let html='';
   if(view==='day') html=renderGrid([cursor]);
-  else if(view==='3day') html=renderGrid([0,1,2].map(i=>addDays(cursor,i)));
-  else if(view==='week') html = weekCompact ? renderWeekCompact() : renderGrid([0,1,2,3,4,5,6].map(i=>addDays(mondayOf(cursor),i)));
+  else if(view==='3day') html=renderGrid(threeDays());
+  else if(view==='week') html = weekCompact ? renderWeekCompact() : renderGrid(weekDays());
   else if(view==='agenda') html=renderAgenda();
   else if(view==='board') html=renderBoard();
   else html=renderMonth();
@@ -115,8 +123,8 @@ function toolsHTML(){
   const tog=(k,l)=>`<label><input type="checkbox" data-ft="${k}" ${filt[k]?'checked':''}> ${l}</label>`;
   return `<div class="vtools">
     ${view==='week'?`<div class="seg"><button data-wc="0" class="${!weekCompact?'on':''}">Time grid</button><button data-wc="1" class="${weekCompact?'on':''}">Compact</button></div>`:''}
-    ${grid&&!weekCompact?`<button data-zoom="-1" title="Smaller hours" aria-label="Zoom out">－</button><button data-zoom="1" title="Taller hours" aria-label="Zoom in">＋</button>
-      <label>2nd zone <select data-tz2><option value="">none</option>${TZ_LIST.map(z=>`<option ${prefs.secondTz===z?'selected':''}>${z}</option>`).join('')}</select></label>`:''}
+    ${grid&&!weekCompact?`<button data-zoom="-1" title="Smaller hours" aria-label="Zoom out">－</button><button data-zoom="1" title="Taller hours" aria-label="Zoom in">＋</button>`:''}
+    ${['3day','week','month'].includes(view)?`<label title="Hide Saturday and Sunday in 3 days, Week and Month"><input type="checkbox" data-hidewe ${hideWE()?'checked':''}> Hide weekends</label>`:''}
     <label>Colour by <select data-colorby>${['project','calendar','priority'].map(c=>`<option ${prefs.colorBy===c?'selected':''}>${c}</option>`).join('')}</select></label>
     <label>Density <select data-density>${['comfortable','compact'].map(c=>`<option ${prefs.density===c?'selected':''}>${c}</option>`).join('')}</select></label>
     <details class="dropdown"><summary style="cursor:pointer;color:var(--muted)">Show ▾</summary><div class="menu open" style="display:block;padding:10px;min-width:210px">
@@ -136,7 +144,7 @@ function bindTools(){
   const m=$('#main');
   $$('[data-wc]',m).forEach(b=>b.onclick=()=>{ weekCompact=b.dataset.wc==='1'; safeSet('wtc-weekc',weekCompact?'1':'0'); render(); });
   $$('[data-zoom]',m).forEach(b=>b.onclick=()=>{ prefs.hourPx=clamp(prefs.hourPx+(+b.dataset.zoom)*8,24,96); savePrefs(); render(); });
-  const z=$('[data-tz2]',m); if(z) z.onchange=()=>{ prefs.secondTz=z.value; savePrefs(); render(); };
+  const hw=$('[data-hidewe]',m); if(hw) hw.onchange=()=>{ prefs.hideWeekends=hw.checked; savePrefs(); _gridScroll=null; render(); renderSide(); };
   $('[data-colorby]',m).onchange=e=>{ prefs.colorBy=e.target.value; savePrefs(); renderAll(); };
   $('[data-density]',m).onchange=e=>{ prefs.density=e.target.value; savePrefs(); render(); };
   $$('[data-ft]',m).forEach(c=>c.onchange=()=>{ filt[c.dataset.ft]=c.checked; saveFilter(); renderAll(); });
@@ -152,10 +160,12 @@ function renderMonth(){
   let d=mondayOf(first); const end=addDays(mondayOf(last),6);
   const today=todayKey();
   const conf=conflictsIn(occurrences(d.getTime(), addDays(end,1).getTime()));
-  let html='<div class="month"><div class="mhead">'+DOW.map(x=>`<div>${x}</div>`).join('')+'</div>';
+  const nd=hideWE()?5:7;
+  let html=`<div class="month ${hideWE()?'nowe':''}"><div class="mhead">`+DOW.slice(0,nd).map(x=>`<div>${x}</div>`).join('')+'</div>';
   while(d<=end){
     html+='<div class="mrow">';
     for(let i=0;i<7;i++){
+      if(i>=nd){ d=addDays(d,1); continue; }
       const k=key(d), e=day(k), we=isWeekend(d);
       const cls=['cell', we?'we':'', d.getMonth()!==m?'out':'', k===today?'today':'', selected.has(k)?'sel':''].join(' ');
       const it=dayItems(k);
@@ -203,8 +213,8 @@ function renderWeekCompact(){
   const mon=mondayOf(cursor), sun=addDays(mon,6);
   $('#title').textContent = weekTitle(mon,sun);
   const today=todayKey();
-  let html='<div class="week">';
-  for(let i=0;i<7;i++){
+  let html=`<div class="week ${hideWE()?'nowe':''}">`;
+  for(let i=0;i<(hideWE()?5:7);i++){
     const d=addDays(mon,i), k=key(d), e=day(k), we=i>=5;
     const fl=flightsHTML(e,k); const it=dayItems(k);
     const chips=[...it.overdue.map(t=>dueChip(t,true)), ...it.ad.map(o=>occChip(o,k)), ...it.tm.map(o=>occChip(o,k)), ...it.due.map(t=>dueChip(t,false))].join('');
@@ -234,8 +244,8 @@ function layoutLanes(items){ // classic overlap layout: returns item→{lane,lan
 function renderGrid(days){
   gridDays=days.map(d=>key(d));
   const n=days.length, hp=hourPx(), tk=todayKey(), now=NOW();
-  $('#title').textContent = n===1 ? fmtLong(days[0]) : n===7 ? weekTitle(days[0],days[n-1]) : `${fmtDM(days[0])} – ${fmtDM(days[n-1])} ${days[n-1].getFullYear()}`;
-  const cols=`${prefs.secondTz?'78px':'52px'} repeat(${n},minmax(0,1fr))`;
+  $('#title').textContent = n===1 ? fmtLong(days[0]) : view==='week' ? weekTitle(mondayOf(days[0]),addDays(mondayOf(days[0]),6)) : `${fmtDM(days[0])} – ${fmtDM(days[n-1])} ${days[n-1].getFullYear()}`;
+  const cols=`52px repeat(${n},minmax(0,1fr))`;
   const ws=hmToMin(S().workStart)||540, we=hmToMin(S().workEnd)||1080;
   const r0=fromKey(gridDays[0]).getTime(), r1=addDays(fromKey(gridDays[n-1]),1).getTime();
   const allOcc=occurrences(r0,r1);
@@ -245,9 +255,7 @@ function renderGrid(days){
   let all=`<div class="tg-all" style="grid-template-columns:${cols}"><div class="tg-gut">all-day</div>`;
   let body=`<div class="tg-grid" style="grid-template-columns:${cols};height:${24*hp}px"><div class="tg-hours">`;
   for(let h=0;h<24;h++){
-    let second='';
-    if(prefs.secondTz){ const ms=fromKey(gridDays[0]).getTime()+h*3600000; second=`<span>${msToZoned(ms,prefs.secondTz).slice(11,16)} ${esc(tzShort(prefs.secondTz).slice(0,3))}</span>`; }
-    body+=`<div>${h?String(h).padStart(2,'0')+':00':''}${h?second:''}</div>`;
+    body+=`<div>${h?String(h).padStart(2,'0')+':00':''}</div>`;
   }
   body+='</div>';
   days.forEach((d,i)=>{
