@@ -85,6 +85,7 @@ function bindTop(){
     if(a==='icsexp') openIcsExport();
     if(a==='export') exportBackup();
     if(a==='signout') signOut();
+    if(a==='password') openChangePassword();
     if(!editable) return;
     if(a==='icsimp') pickFile('.ics,text/calendar',importIcsFile);
     if(a==='csvimp') pickFile('.csv,text/csv,.txt',importCsvFile);

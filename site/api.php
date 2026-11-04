@@ -15,6 +15,11 @@ const KEEP_BACKUPS  = 200;            // newest backups kept on the server
 const MAX_BODY      = 3000000;        // 3 MB request limit
 const REMEMBER_DAYS = 30;
 const IDLE_HOURS    = 12;             // sign-out after this long without "keep me signed in"
+// Password reset by file: put this file in data/ (e.g. by FTP), one line per account:
+//   username  temporary-password  [editor|viewer]      (* instead of a username = every account)
+// The next request applies it, deletes it, and writes a log without passwords.
+const RESET_FILE    = DATA_DIR . '/reset-passwords.txt';
+const RESET_LOG     = DATA_DIR . '/reset-passwords-log.txt';
 const GUARD         = "<?php http_response_code(404); exit; __halt_compiler();\n";
 
 header('Content-Type: application/json; charset=utf-8');
@@ -63,6 +68,57 @@ function users(): array { $u = store_read('users'); return is_array($u) && isset
 function find_user(array $list, string $name): ?array {
   foreach ($list as $u) if (strcasecmp($u['user'], $name) === 0) return $u;
   return null;
+}
+/* Apply data/reset-passwords.txt if present (see RESET_FILE above). Accounts reset this way
+   sign in with the temporary password and must then choose a new one (flag must_change). */
+function process_reset_file(): void {
+  if (!is_file(RESET_FILE)) return;
+  with_lock(function () {
+    if (!is_file(RESET_FILE)) return;
+    $lines = @file(RESET_FILE, FILE_IGNORE_NEW_LINES) ?: [];
+    $list = users(); $log = []; $changed = false;
+    foreach ($lines as $ln) {
+      $ln = trim(preg_replace('/^\xEF\xBB\xBF/', '', (string)$ln));   // ignore a UTF-8 BOM from Notepad
+      if ($ln === '' || $ln[0] === '#') continue;
+      $p = preg_split('/\s+/', $ln, 3);
+      $name = $p[0]; $pass = $p[1] ?? ''; $role = strtolower(trim($p[2] ?? ''));
+      if ($role !== '' && !in_array($role, ['editor', 'viewer'], true)) { $log[] = "SKIPPED  $name: the role must be editor or viewer"; continue; }
+      if ($pass === '') { $log[] = "SKIPPED  $name: no temporary password on the line"; continue; }
+      if (strlen($pass) < 6) { $log[] = "SKIPPED  $name: the temporary password needs at least 6 characters"; continue; }
+      $hash = password_hash($pass, PASSWORD_DEFAULT);
+      if ($name === '*') {
+        foreach ($list as &$x) { $x['hash'] = $hash; $x['must_change'] = true; if ($role) $x['role'] = $role; }
+        unset($x);
+        $log[] = 'RESET    all ' . count($list) . ' accounts: they must choose a new password at the next sign-in';
+        $changed = true; continue;
+      }
+      if (!preg_match('/^[\p{L}\p{N}._@-]{1,40}$/u', $name)) { $log[] = "SKIPPED  $name: not a valid username"; continue; }
+      $found = false;
+      foreach ($list as &$x) if (strcasecmp($x['user'], $name) === 0) {
+        $x['hash'] = $hash; $x['must_change'] = true; if ($role) $x['role'] = $role;
+        $found = true; $log[] = "RESET    {$x['user']} ({$x['role']}): must choose a new password at the next sign-in";
+      }
+      unset($x);
+      if (!$found) { $list[] = ['user' => $name, 'role' => $role ?: 'viewer', 'hash' => $hash, 'must_change' => true];
+        $log[] = "CREATED  $name (" . ($role ?: 'viewer') . '): must choose a new password at the next sign-in'; }
+      $changed = true;
+    }
+    if ($changed) store_write('users', ['users' => array_values($list)]);
+    // never leave temporary passwords on the server
+    if (!@unlink(RESET_FILE)) { @file_put_contents(RESET_FILE, ''); $log[] = 'NOTE     could not delete reset-passwords.txt (it was emptied instead); please delete it'; }
+    if (!$log) $log[] = 'NOTHING  the file had no account lines';
+    @file_put_contents(RESET_LOG, '[' . gmdate('Y-m-d H:i') . " UTC]\n  " . implode("\n  ", $log) . "\n\n", FILE_APPEND | LOCK_EX);
+    @chmod(RESET_LOG, 0600);
+  });
+}
+function set_user_password(string $name, string $hash, bool $must): ?array {
+  return with_lock(function () use ($name, $hash, $must) {
+    $list = users(); $res = null;
+    foreach ($list as &$x) if ($x['user'] === $name) { $x['hash'] = $hash; if ($must) $x['must_change'] = true; else unset($x['must_change']); $res = $x; }
+    unset($x);
+    if ($res) store_write('users', ['users' => $list]);
+    return $res;
+  });
 }
 function pw_stamp(array $u): string { return substr(hash('sha256', $u['hash']), 0, 16); }
 
@@ -190,6 +246,7 @@ function body(): array {
 
 /* ============================================================ */
 ensure_dirs();
+process_reset_file();
 $a = $_GET['a'] ?? '';
 $post = $_SERVER['REQUEST_METHOD'] === 'POST';
 
@@ -222,7 +279,14 @@ switch ($a) {
     $b = body();
     $u = find_user(users(), trim((string)($b['user'] ?? '')));
     if (!$u || !password_verify((string)($b['pass'] ?? ''), $u['hash'])) { throttle_fail(); fail('Wrong username or password.', 401); }
-    if (password_needs_rehash($u['hash'], PASSWORD_DEFAULT)) {
+    if (!empty($u['must_change'])) {                // temporary password (reset): a new one is required
+      $new = (string)($b['newpass'] ?? '');
+      if ($new === '') out(['change' => true, 'user' => $u['user']]);
+      check_pass($new);
+      if ($new === (string)($b['pass'] ?? '')) fail('Choose a new password that is different from the temporary one.');
+      $u = set_user_password($u['user'], password_hash($new, PASSWORD_DEFAULT), false);
+      if (!$u) fail('That account no longer exists.', 401);
+    } elseif (password_needs_rehash($u['hash'], PASSWORD_DEFAULT)) {
       with_lock(function () use (&$u, $b) {
         $list = users();
         foreach ($list as &$x) if ($x['user'] === $u['user']) { $x['hash'] = password_hash((string)$b['pass'], PASSWORD_DEFAULT); $u = $x; }
@@ -267,7 +331,7 @@ switch ($a) {
 
   case 'users':                                   // editor: list (GET) or replace (POST) accounts
     $me = require_user(true);
-    if (!$post) out(['users' => array_map(fn($u) => ['user' => $u['user'], 'role' => $u['role']], users())]);
+    if (!$post) out(['users' => array_map(fn($u) => ['user' => $u['user'], 'role' => $u['role'], 'must' => !empty($u['must_change'])], users())]);
     $b = body();
     $rows = $b['users'] ?? null;
     if (!is_array($rows) || !$rows) fail('Add at least one account.');
@@ -282,7 +346,11 @@ switch ($a) {
         if ($pass !== '') $hash = password_hash(check_pass($pass), PASSWORD_DEFAULT);
         elseif ($prev) $hash = $prev['hash'];
         else fail('The new account "' . $name . '" needs a password.');
-        $list[] = ['user' => $name, 'role' => $role, 'hash' => $hash];
+        $row = ['user' => $name, 'role' => $role, 'hash' => $hash];
+        // "must choose a new password at next sign-in": ticked in the dialog, or kept from before when unchanged
+        $self = $prev && strcasecmp($prev['user'], $me['user']) === 0;
+        if (!$self && (!empty($r['must']) || ($pass === '' && $prev && !empty($prev['must_change'])))) $row['must_change'] = true;
+        $list[] = $row;
       }
       if (!array_filter($list, fn($u) => $u['role'] === 'editor')) fail('Keep at least one Editor account, otherwise nobody can change the calendar.');
       store_write('users', ['users' => $list]);
@@ -292,6 +360,18 @@ switch ($a) {
     });
     if ($res) { $_SESSION['user'] = $res['user']; $_SESSION['pw'] = pw_stamp($res); }
     out(['ok' => true, 'me' => $res ? me_info($res) : ['user' => null]]);
+
+  case 'password':                                // any signed-in user: change own password
+    if (!$post) fail('Use POST.', 405);
+    $me = require_user(false);
+    throttle_check();
+    $b = body();
+    if (!password_verify((string)($b['old'] ?? ''), $me['hash'])) { throttle_fail(); fail('Your current password is not correct.', 400); }
+    $new = check_pass($b['new'] ?? '');
+    if ($new === (string)$b['old']) fail('The new password is the same as the current one.');
+    $u = set_user_password($me['user'], password_hash($new, PASSWORD_DEFAULT), false);
+    $_SESSION['pw'] = pw_stamp($u);                // stay signed in here; other devices are signed out
+    out(['ok' => true]);
 
   case 'history':                                 // editor: list server backups
     require_user(true);

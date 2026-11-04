@@ -1,7 +1,8 @@
 WORK & TRAVEL CALENDAR — UPGRADE TO v2 (tasks, events, projects, reminders, reports)
 
 WHAT TO UPLOAD
-  Upload these files to the calendar folder on your server, replacing the old ones:
+  Upload these files to the calendar folder on your server, replacing the old ones
+  (your accounts and passwords live in data/users.php and are not affected):
     index.php, api.php, sw.js, manifest.webmanifest, icon.svg, icon-192.png,
     icon-512.png, .htaccess
   Do NOT upload or replace the data folder: it holds your live calendar and
@@ -90,3 +91,31 @@ VIEWS AND NOTES (5 Nov 2026)
   - NOTES IN MARKDOWN: event and task notes use Markdown (CommonMark), with a
     toolbar (bold, italic, strikethrough, heading, quote, code, lists, link,
     table, line) and Write / Preview tabs. Ctrl+B, Ctrl+I and Ctrl+K work too.
+
+PASSWORDS AND RESETS (5 Nov 2026)
+  Where they are: data/users.php (on the server, in the data folder). It holds
+  usernames, roles and password HASHES only (never the passwords themselves),
+  cannot be opened from a browser, and is never replaced when you upload a new
+  index.php / api.php. Do not upload or overwrite the data folder.
+
+  Change your own password:  ⋯ menu → Change my password (any account).
+  Editors: ⋯ → User accounts. Set a new password for someone and tick
+  "Must change" so they choose their own at the next sign-in.
+
+  RESET BY FILE (e.g. you are locked out, or forgot the editor password):
+    1. Create a text file named  reset-passwords.txt  with one line per account:
+           username  temporary-password            (at least 6 characters, no spaces)
+           username  temporary-password  editor    (also sets the role; editor or viewer)
+           *         temporary-password            (every account)
+       Lines starting with # are ignored. A username that does not exist is
+       created (as a viewer unless you write editor).
+    2. Upload it into the data folder on the server (next to users.php).
+    3. Open the calendar address straight away. The file is applied and then
+       DELETED automatically, so no password stays on the server. The result
+       is written to data/reset-passwords-log.txt (usernames only).
+    4. Sign in with the temporary password; you are asked to choose a new one.
+       Anyone signed in with the old password is signed out.
+
+  FULL RESET: deleting data/users.php removes all accounts. The next visitor
+  sees "First start" and creates new accounts, so do it only if you can open
+  the calendar yourself right away. The calendar data is not affected.

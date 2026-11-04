@@ -425,17 +425,19 @@ function installHint(){
 /* ---------- user accounts & history (unchanged from v1) ---------- */
 async function openAccounts(){
   let rows;
-  try{ rows = (await api('users')).users.map(a=>({orig:a.user, user:a.user, role:a.role, pass:''})); }
+  try{ rows = (await api('users')).users.map(a=>({orig:a.user, user:a.user, role:a.role, pass:'', must:!!a.must})); }
   catch(e){ if(e.status!==401) alert(e.message); return; }
   let d;
   const draw = ()=>{
     const html=`<div class="dhd"><h2>👥 User accounts</h2><button class="ghost" data-close>✕</button></div>
-      <p class="hint"><b>Editors</b> can read and change the calendar; <b>viewers</b> can only read it. Leave the password empty to keep the current one. New accounts need a password (at least 6 characters). Anyone whose password you change, or whose account you remove, is signed out. Personal items are protected separately by the passphrase (⚙ Settings → Calendars &amp; privacy).</p>
-      <table class="acc"><thead><tr><th>Username</th><th style="width:120px">Role</th><th>New password</th><th></th></tr></thead><tbody>
+      <p class="hint"><b>Editors</b> can read and change the calendar; <b>viewers</b> can only read it. Leave the password empty to keep the current one. New accounts need a password (at least 6 characters). Tick <b>Must change</b> to make the person choose their own password at the next sign-in, for example after you give them a temporary one. Anyone whose password you change, or whose account you remove, is signed out.</p>
+      <p class="hint">Locked out? Put a file named <code>reset-passwords.txt</code> in the server’s <code>data</code> folder with a line <code>username temporary-password</code> (or <code>*</code> for every account), then open the calendar. See HOW TO UPDATE.txt.</p>
+      <table class="acc"><thead><tr><th>Username</th><th style="width:120px">Role</th><th>New password</th><th title="The person must choose a new password the next time they sign in">Must change</th><th></th></tr></thead><tbody>
       ${rows.map((a,i)=>`<tr data-i="${i}">
         <td><input type="text" data-f="user" value="${esc(a.user)}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Username"></td>
         <td><select data-f="role" aria-label="Role"><option value="editor" ${a.role==='editor'?'selected':''}>Editor</option><option value="viewer" ${a.role==='viewer'?'selected':''}>Viewer</option></select></td>
         <td><input type="password" data-f="pass" value="${esc(a.pass)}" autocomplete="new-password" placeholder="${a.orig?'unchanged':'password'}" aria-label="New password"></td>
+        <td style="text-align:center">${a.orig&&a.orig.toLowerCase()===session.user.toLowerCase()?'<span class="hint">you</span>':`<input type="checkbox" data-must="${i}" ${a.must?'checked':''} aria-label="Must choose a new password at next sign-in">`}</td>
         <td><button class="ghost" data-del="${i}" title="Remove account">🗑</button></td></tr>`).join('')}
       </tbody></table>
       <button id="accAdd">＋ Add account</button>
@@ -444,12 +446,30 @@ async function openAccounts(){
       <div class="dacts"><span class="sp"></span><button data-close>Cancel</button><button class="primary" id="accSave">Save</button></div>`;
     if(!d) d=openDialog(html,{size:'mid'}); else { d.querySelector('.box').innerHTML=html; $$('[data-close]',d).forEach(b=>b.onclick=()=>closeDialog(d)); }
     $$('tr[data-i]',d).forEach(tr=>$$('[data-f]',tr).forEach(inp=>inp.oninput=inp.onchange=()=>{ rows[+tr.dataset.i][inp.dataset.f]=inp.value; }));
+    $$('[data-must]',d).forEach(c=>c.onchange=()=>{ rows[+c.dataset.must].must=c.checked; });
     $$('[data-del]',d).forEach(b=>b.onclick=()=>{ rows.splice(+b.dataset.del,1); draw(); });
-    $('#accAdd',d).onclick=()=>{ rows.push({user:'', role:'viewer', pass:''}); draw(); };
+    $('#accAdd',d).onclick=()=>{ rows.push({user:'', role:'viewer', pass:'', must:true}); draw(); };
     $('#accShow',d).onchange=e=>$$('input[data-f=pass]',d).forEach(i=>i.type=e.target.checked?'text':'password');
     $('#accSave',d).onclick=()=>saveAccounts(rows,d);
   };
   draw();
+}
+/* change own password (any account) */
+function openChangePassword(){
+  const d=openDialog(`<div class="dhd"><h2>🔑 Change my password</h2><button class="ghost" data-close>✕</button></div>
+    <form class="frm" autocomplete="on"><input type="text" autocomplete="username" value="${esc(session.user)}" hidden>
+      <label>Current password</label><input type="password" id="cpOld" autocomplete="current-password" required>
+      <label>New password</label><input type="password" id="cpNew" autocomplete="new-password" minlength="6" required>
+      <label>Repeat</label><input type="password" id="cpNew2" autocomplete="new-password" minlength="6" required>
+      <div class="full hint">At least 6 characters. You stay signed in here; other devices signed in to this account are signed out.</div>
+      <div class="full lerr" id="cpErr"></div>
+      <div class="full dacts" style="margin-top:4px"><span class="sp"></span><button type="button" data-close>Cancel</button><button class="primary" type="submit">Change password</button></div></form>`,{size:'narrow',focus:'#cpOld'});
+  $('form',d).onsubmit=async e=>{ e.preventDefault();
+    const o=$('#cpOld',d).value, n=$('#cpNew',d).value, n2=$('#cpNew2',d).value, err=$('#cpErr',d);
+    if(n!==n2){ err.textContent='The two new passwords do not match.'; return; }
+    const b=$('[type=submit]',d); b.disabled=true;
+    try{ await api('password',{old:o,new:n}); closeDialog(d); toast('Your password was changed.'); }
+    catch(x){ if(x.status!==401) err.textContent=x.message; b.disabled=false; } };
 }
 async function saveAccounts(rows,d){
   const err=t=>{ $('#accErr',d).textContent=t; };
@@ -457,7 +477,7 @@ async function saveAccounts(rows,d){
   if((!mine || mine.role!=='editor') && !confirm('You are removing your own editor access. You will not be able to change the calendar any more. Continue?')) return;
   const btn=$('#accSave',d); btn.disabled=true; btn.textContent='Saving…';
   try{
-    const j = await api('users', {users:rows.map(r=>({orig:r.orig, user:(r.user||'').trim(), role:r.role, pass:r.pass||''}))});
+    const j = await api('users', {users:rows.map(r=>({orig:r.orig, user:(r.user||'').trim(), role:r.role, pass:r.pass||'', must:!!r.must}))});
     closeDialog(d);
     if(!j.me || !j.me.user){ alert('Accounts saved. You no longer have an account, so you will be signed out.'); location.reload(); return; }
     session={user:j.me.user, role:j.me.role}; editable = j.me.role==='editor';

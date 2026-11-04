@@ -12,7 +12,7 @@ It runs on any PHP 7.4+ web host: `index.php` is the app, `api.php` handles sign
 - Reports: daily, end of day, weekly, project, time allocation, trips (print, CSV, .ics)
 - Notes in Markdown (CommonMark) with a formatting toolbar and preview
 - Quick add in English and Greek, templates, search, keyboard shortcuts, undo
-- Editor and viewer accounts; Personal items encrypted in the browser with a passphrase
+- Editor and viewer accounts (hashed passwords in `site/data/users.php`); change own password; reset by placing `data/reset-passwords.txt` on the server; Personal items encrypted in the browser with a passphrase
 - .ics import/export (Outlook, Google), CSV task import, backups and server version history
 
 ## Project layout and development
@@ -55,7 +55,8 @@ FOLDERS
               1. copy site/ to a test folder and run: php -S 127.0.0.1:8099 -t <folder>
               2. python3 tests/seed.py <folder>      (creates a sample old-format calendar)
               3. create accounts dkouis / secret123 and viewer / viewer123 on first open
-              4. WTC_SRV=<folder> python3 tests/func.py   (78 checks)
+              4. WTC_SRV=<folder> python3 tests/func.py        (91 checks)
+              5. WTC_SRV=<folder> python3 tests/passwords.py   (19 checks: reset file, forced change, change password)
 
 TO CHANGE THE APP
   Edit files in src/, run python3 build.py, then upload site/index.php.

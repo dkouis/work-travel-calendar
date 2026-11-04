@@ -7,9 +7,16 @@
     <div class="hint">Please sign in to see the calendar.</div>
     <label>Username <input type="text" id="lUser" autocomplete="username" autocapitalize="off" spellcheck="false" required></label>
     <label>Password <input type="password" id="lPass" autocomplete="current-password" required></label>
+    <fieldset id="lNewBox" hidden>
+      <legend>Choose a new password</legend>
+      <div class="hint">Your password was reset. Choose a new one (at least 6 characters) to continue.</div>
+      <label>New password <input type="password" id="lNew" autocomplete="new-password" minlength="6"></label>
+      <label>Repeat new password <input type="password" id="lNew2" autocomplete="new-password" minlength="6"></label>
+    </fieldset>
     <label class="chk"><input type="checkbox" id="lRemember"> Keep me signed in on this device</label>
     <div class="lerr" id="lErr"></div>
     <button class="primary" type="submit" id="lBtn">Sign in</button>
+    <div class="hint" style="text-align:center">Forgot your password? Ask the calendar owner to reset it.</div>
   </form>
   <form class="lbox" id="setupForm" autocomplete="off" style="display:none">
     <div class="brand"><span class="dot"></span>Work &amp; Travel Calendar</div>
@@ -97,6 +104,7 @@
       <button data-act="csvimp" data-ed>📥 Import tasks from CSV…</button>
       <hr data-ed>
       <button data-act="owner" data-ed>✎ Set calendar owner name</button>
+      <button data-act="password">🔑 Change my password…</button>
       <button data-act="accounts" data-ed>👥 User accounts &amp; passwords…</button>
       <button data-act="history" data-ed>🕘 Earlier versions…</button>
       <button data-act="export">⬇ Export backup (.json)…</button>

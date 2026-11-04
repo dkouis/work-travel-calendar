@@ -232,15 +232,27 @@ async function boot(){
 }
 $('#loginForm').addEventListener('submit', async ev=>{
   ev.preventDefault();
-  const u=$('#lUser').value.trim(), p=$('#lPass').value, btn=$('#lBtn');
+  const u=$('#lUser').value.trim(), p=$('#lPass').value, btn=$('#lBtn'), nb=$('#lNewBox');
   if(!u||!p) return;
+  const body={user:u, pass:p, remember:$('#lRemember').checked};
+  if(!nb.hidden){                         // second step after a password reset
+    const n1=$('#lNew').value, n2=$('#lNew2').value;
+    if(n1.length<6){ $('#lErr').textContent='The new password needs at least 6 characters.'; return; }
+    if(n1!==n2){ $('#lErr').textContent='The two new passwords do not match.'; return; }
+    body.newpass=n1;
+  }
   btn.disabled=true; btn.textContent='Signing in…'; $('#lErr').textContent='';
   try{
-    const me = await api('login', {user:u, pass:p, remember:$('#lRemember').checked});
-    $('#lPass').value='';
+    const me = await api('login', body);
+    if(me.change){                        // temporary password accepted: ask for a new one
+      nb.hidden=false; $('#lPass').closest('label').firstChild.textContent='Temporary password ';
+      $('#lErr').textContent=''; setTimeout(()=>$('#lNew').focus(),0); return;
+    }
+    $('#lPass').value=''; $('#lNew').value=''; $('#lNew2').value='';
+    if(!nb.hidden){ nb.hidden=true; setTimeout(()=>toast('Your new password is saved.'),800); }
     await enter(me);
   }catch(err){ $('#lErr').textContent = err.message; }
-  finally{ btn.disabled=false; btn.textContent='Sign in'; }
+  finally{ btn.disabled=false; btn.textContent=nb.hidden?'Sign in':'Save new password and sign in'; }
 });
 $('#setupForm').addEventListener('submit', async ev=>{
   ev.preventDefault();

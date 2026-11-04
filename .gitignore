@@ -9,3 +9,4 @@ __pycache__/
 *.pyc
 testsrv/
 .DS_Store
+site/data/reset-passwords*
