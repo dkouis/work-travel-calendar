@@ -43,7 +43,7 @@ async def main():
         ok('migration: schema 2, days unchanged', sd.get('schema')==2 and sd['days']==seed_days and sd['monthNotes']=={'2026-10':'October notes'}, len(sd['days']))
 
         # ---- project via UI ----
-        await page.click('#newBtn'); await page.click('[data-new=project]')
+        await page.click('#addBtn'); await page.click('#addMenu [data-new=project]')
         await page.fill('.dlg [name=name]','Council WG'); await page.fill('.dlg [name=budgetHours]','10')
         await page.click('.dlg [data-a=save]'); await saved(page)
         pid=await ev(page,"data.projects.find(p=>p.name==='Council WG').id")
@@ -79,12 +79,12 @@ async def main():
         ok(f'quick add parses {len(cases)-len(bad)}/{len(cases)} phrases', not bad, '; '.join(c[0]+' -> '+c[2] for c in bad))
 
         # ---- quick add via UI ----
-        await page.click('#qa'); await page.keyboard.type('Meeting WG tue 10-12:30 #Council @Brussels'); await page.wait_for_timeout(200)
+        await page.click('#addBtn'); await page.wait_for_selector('#qa:focus'); await page.keyboard.type('Meeting WG tue 10-12:30 #Council @Brussels'); await page.wait_for_timeout(200)
         ok('quick add preview shows', await page.locator('#qaPrev.open').count()==1)
         await page.keyboard.press('Enter'); await saved(page)
         e=await ev(page,"data.events.find(e=>e.title==='Meeting WG')")
         ok('quick add created event in the active zone', e and e['tz']=='Europe/Athens' and e['projectId']==pid and e['start'].endswith('T10:00') and e['location']=='Brussels', e and (e['start'],e['tz']))
-        await page.click('#qa'); await page.keyboard.type('Draft compromise text by fri 17:00 ~4h p1 #Council'); await page.keyboard.press('Enter'); await saved(page)
+        await page.click('#addBtn'); await page.wait_for_selector('#qa:focus'); await page.keyboard.type('Draft compromise text by fri 17:00 ~4h p1 #Council'); await page.keyboard.press('Enter'); await saved(page)
         t=await ev(page,"data.tasks.find(t=>t.title==='Draft compromise text')")
         ok('quick add created task', t and t['estimateMin']==240 and t['priority']==1 and t['dueTime']=='17:00')
         tid=t['id']; due0=t['dueDate']
@@ -140,12 +140,12 @@ async def main():
         await saved(page)
 
         # ---- conflict detection ----
-        await page.click('#qa'); await page.keyboard.type('Overlap test tue 11-12'); await page.keyboard.press('Enter'); await saved(page)
+        await page.click('#addBtn'); await page.wait_for_selector('#qa:focus'); await page.keyboard.type('Overlap test tue 11-12'); await page.keyboard.press('Enter'); await saved(page)
         await ev(page,"render()")
         ok('conflict badge on overlapping events', await page.locator('.ev.conflict').count()>=2)
 
         # ---- recurring event: this / following ----
-        await page.click('#qa'); await page.keyboard.type('Weekly sync fri 15-16 *weekly'); await page.keyboard.press('Enter'); await saved(page)
+        await page.click('#addBtn'); await page.wait_for_selector('#qa:focus'); await page.keyboard.type('Weekly sync fri 15-16 *weekly'); await page.keyboard.press('Enter'); await saved(page)
         rid=await ev(page,"data.events.find(e=>e.title==='Weekly sync').id")
         s0=await ev(page,"data.events.find(e=>e.title==='Weekly sync').start.slice(0,10)")
         k2=await ev(page,f"keyAdd('{s0}',7)"); k3=await ev(page,f"keyAdd('{s0}',14)")
@@ -202,7 +202,7 @@ async def main():
 
         # ---- privacy ----
         await ev(page,"openPrivSetup()"); await page.fill('.dlg #pp1','my-pass-phrase'); await page.fill('.dlg #pp2','my-pass-phrase'); await page.click('.dlg button[type=submit]'); await saved(page)
-        await page.click('#qa'); await page.keyboard.type('Dentist 5/11 16:30 !personal'); await page.keyboard.press('Enter'); await saved(page)
+        await page.click('#addBtn'); await page.wait_for_selector('#qa:focus'); await page.keyboard.type('Dentist 5/11 16:30 !personal'); await page.keyboard.press('Enter'); await saved(page)
         raw=open(SRV).read()
         sd=server()['data']
         ok('Personal item encrypted on the server', 'Dentist' not in raw and sd.get('private') and len(sd.get('busy',[]))>=1)
@@ -211,7 +211,7 @@ async def main():
         await pv.evaluate("()=>{ cursor=fromKey('2026-11-05'); setView('day'); }"); await pv.wait_for_timeout(400)
         html=await pv.content()
         ok('viewer cannot see Personal titles; sees Busy', 'Dentist' not in html and await pv.locator('.ev.busy').count()>=1 and 'Meeting WG' in (await pv.evaluate("JSON.stringify(data.events.map(e=>e.title))")))
-        ok('viewer has no editing', await pv.locator('#newBtn').is_hidden() and await pv.evaluate("editable")==False)
+        ok('viewer has no editing', await pv.locator('#addBtn').is_hidden() and await pv.evaluate("editable")==False)
         await pv.screenshot(path=SH+'viewer-day.png')
         # viewer unlock with passphrase sees it
         await pv.evaluate("openUnlock()"); await pv.fill('.dlg #up','my-pass-phrase'); await pv.click('.dlg button[type=submit]'); await pv.wait_for_timeout(800)
@@ -327,8 +327,8 @@ async def main():
 
         # ---- v2.2: active time zone ----
         await ev(page,"()=>{ closeDialog(); const d=data.days['2026-11-24']||(data.days['2026-11-24']={}); d.flights=[{from:'Athens',to:'Brussels',time:'morning'}]; changed(); }"); await saved(page)
-        await page.click('#qa'); await page.keyboard.type('TZ check 25/11 10:00-11:00'); await page.keyboard.press('Enter'); await saved(page)
-        await page.click('#qa'); await page.keyboard.type('Late call 25/11 00:30-01:00'); await page.keyboard.press('Enter'); await saved(page)
+        await page.click('#addBtn'); await page.wait_for_selector('#qa:focus'); await page.keyboard.type('TZ check 25/11 10:00-11:00'); await page.keyboard.press('Enter'); await saved(page)
+        await page.click('#addBtn'); await page.wait_for_selector('#qa:focus'); await page.keyboard.type('Late call 25/11 00:30-01:00'); await page.keyboard.press('Enter'); await saved(page)
         e=await ev(page,"data.events.find(e=>e.title==='TZ check')")
         ok('new event entered in the active zone (Athens)', e['tz']=='Europe/Athens' and e['start']=='2026-11-25T10:00', (e['tz'],e['start']))
         await page.click('#tzBtn'); await page.wait_for_timeout(150)
@@ -352,7 +352,7 @@ async def main():
         await ev(page,"openEventEditor(data.events.find(e=>e.title==='TZ check').id)"); await page.fill('.dlg [name=st]','14:00'); await page.dispatch_event('.dlg [name=st]','change'); await page.click('.dlg [data-a=save]'); await saved(page)
         e=await ev(page,"data.events.find(e=>e.title==='TZ check')")
         ok('moving it to 14:00 Brussels stores 15:00 Athens', e['start']=='2026-11-25T15:00' and e['end']=='2026-11-25T16:00', (e['start'],e['end']))
-        await page.click('#qa'); await page.keyboard.type('Brussels lunch 26/11 12:00-13:00'); await page.keyboard.press('Enter'); await saved(page)
+        await page.click('#addBtn'); await page.wait_for_selector('#qa:focus'); await page.keyboard.type('Brussels lunch 26/11 12:00-13:00'); await page.keyboard.press('Enter'); await saved(page)
         e=await ev(page,"data.events.find(e=>e.title==='Brussels lunch')")
         ok('new item while in Brussels is entered in Brussels time', e['tz']=='Europe/Brussels' and e['start']=='2026-11-26T12:00')
         # task due time
@@ -381,7 +381,7 @@ async def main():
 
         # ---- 3-day view ----
         await ev(page,"()=>{ closeDialog(); closeDrawer(); cursor=fromKey('2026-11-03'); }")
-        await page.click('#viewSeg [data-view="3day"]'); await page.wait_for_timeout(300)
+        await page.click('#viewBtn'); await page.click('#viewSeg [data-view=\"3day\"]'); await page.wait_for_timeout(300)
         cols=await page.eval_on_selector_all('.tg-col','els=>els.map(e=>e.dataset.col)')
         ok('3-day view shows 3 days from the selected day', cols==['2026-11-03','2026-11-04','2026-11-05'], cols)
         ok('3-day view shows the items of those days', await page.locator('.ev[data-ok=event]', has_text='Meeting WG').count()==1)
@@ -424,7 +424,7 @@ async def main():
         await page.click('[data-wc="1"]'); await page.wait_for_timeout(200)
         ok('hide weekends: compact week shows 5 days', await page.locator('.week .wcol').count()==5)
         await page.click('[data-wc="0"]')
-        await page.click('#viewSeg [data-view="month"]'); await page.wait_for_timeout(200)
+        await page.click('#viewBtn'); await page.click('#viewSeg [data-view=\"month\"]'); await page.wait_for_timeout(200)
         mk=await page.eval_on_selector_all('.month .cell','els=>els.map(e=>e.dataset.k)')
         wd=await ev(page,"ks=>ks.filter(k=>isWeekend(fromKey(k))).length", mk)
         ok('hide weekends: month shows only Mon–Fri columns', await page.locator('.month .mhead div').count()==5 and len(mk)%5==0 and wd==0, (len(mk),wd))
@@ -486,6 +486,37 @@ async def main():
         await page.mouse.click(700,600); await page.wait_for_timeout(150)
         ok('legend closes when clicking elsewhere', not await page.locator('.legend-menu').is_visible())
         ok('board view has no legend', (await ev(page,"()=>{ setView('board'); return document.querySelectorAll('.legend-dd').length; }"))==0)
+        await ev(page,"setView('week')")
+
+
+        # ---- v2.8: Add menu and View menu ----
+        await ev(page,"()=>{ closeDialog(); closeDialog(); closeDrawer(); closePopover(); setView('week'); }")
+        ok('quick-add box and view buttons are now menus (closed)', await page.locator('#qaWrap').count()==0 and not await page.locator('#addMenu').is_visible() and not await page.locator('#viewSeg').is_visible())
+        await page.click('#viewBtn'); await page.click('#viewSeg [data-view="month"]'); await page.wait_for_timeout(150)
+        ok('View menu switches view and shows its name', await ev(page,"view")=='month' and (await page.inner_text('#viewLbl'))=='Month' and not await page.locator('#viewSeg').is_visible())
+        ok('full title fits in the top bar', await page.eval_on_selector('#title','e=>e.scrollWidth<=e.clientWidth'))
+        await page.click('#addBtn'); await page.wait_for_timeout(150)
+        items=await page.eval_on_selector_all('#addMenu [data-new]','els=>els.map(e=>e.dataset.new+(e.dataset.cat?":"+e.dataset.cat:""))')
+        ok('Add menu: quick add field focused, all add options listed', await page.evaluate("document.activeElement.id")=='qa' and items==['event:meeting','event:appointment','event:deadline','event:travel','event:social','event:other','task','project','flight','day','template','plan','icsimp','csvimp'], items)
+        await page.keyboard.type('Menu quick add 9/11 10:00-11:00'); await page.wait_for_timeout(150)
+        ok('quick-add preview shows inside the menu', await page.locator('#addMenu #qaPrev.open').is_visible())
+        await page.keyboard.press('Enter'); await saved(page)
+        ok('Enter creates it and closes the menu', any(e['title']=='Menu quick add' for e in server()['data']['events']) and not await page.locator('#addMenu').is_visible())
+        await page.click('#addBtn'); await page.click('#addMenu [data-cat=travel]'); await page.wait_for_timeout(250)
+        ok('event types preselect the type (Travel)', await page.input_value('.dlg [name=category]')=='travel')
+        await page.keyboard.press('Escape')
+        await page.click('#addBtn'); await page.click('#addMenu [data-new=flight]'); await page.wait_for_timeout(200)
+        await page.fill('.dlg [name=d]','2026-11-19'); await page.fill('.dlg [name=from]','Athens'); await page.fill('.dlg [name=to]','Brussels'); await page.check('.dlg [name=t][value=noon]'); await page.fill('.dlg [name=note]','SN 3402')
+        await page.click('.dlg [data-go]'); await saved(page)
+        f=server()['data']['days'].get('2026-11-19',{}).get('flights',[])
+        ok('Add → Flight adds a flight', f and f[-1]=={'from':'Athens','to':'Brussels','time':'noon','note':'SN 3402'}, f)
+        await page.click('#addBtn'); await page.click('#addMenu [data-new=day]'); await page.wait_for_timeout(250)
+        ok('Add → Work status opens the day panel', await page.locator('#drawer.open').count()==1)
+        await page.keyboard.press('Escape')
+        await page.keyboard.press('q'); await page.wait_for_timeout(100)
+        ok('Q opens the Add menu with the quick-add field focused', await page.locator('#addMenu').is_visible() and await page.evaluate("document.activeElement.id")=='qa')
+        await page.keyboard.press('Escape'); await page.wait_for_timeout(100)
+        ok('Escape closes the menu', not await page.locator('#addMenu').is_visible())
         await ev(page,"setView('week')")
 
         # ---- performance with 5,000 items ----

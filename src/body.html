@@ -49,30 +49,47 @@
     <button id="tzBtn" title="Active time zone: times are entered and shown in it" aria-haspopup="true">🌍 <span id="tzLbl"></span> ▾</button>
     <div class="menu" id="tzMenu" role="menu"></div>
   </div>
-  <div class="grow" id="qaWrap">
-    <span class="qa-ico">＋</span>
-    <input type="text" id="qa" placeholder="Quick add: Meeting tue 10-12 #Project @Brussels  ·  Draft text by fri ~2h p1" autocomplete="off" aria-label="Quick add">
-    <div id="qaPrev" role="status"></div>
-  </div>
   <div class="spacer"></div>
   <button class="iconbtn" id="searchBtn" title="Search (Ctrl+K or /)" aria-label="Search">🔍</button>
-  <div class="seg" id="viewSeg" role="tablist" aria-label="View">
-    <button data-view="day" title="Day (D)">Day</button>
-    <button data-view="3day" title="3 days (3)">3 days</button>
-    <button data-view="week" title="Week (W)">Week</button>
-    <button data-view="month" title="Month (M)">Month</button>
-    <button data-view="agenda" title="Agenda (A)">Agenda</button>
-    <button data-view="board" title="Tasks board (B)">Board</button>
+  <div class="dropdown" id="viewWrap">
+    <button id="viewBtn" title="Change view (D, 3, W, M, A, B)" aria-haspopup="true" aria-label="View"><span id="viewLbl">Week</span> ▾</button>
+    <div class="menu" id="viewSeg" role="menu" aria-label="View">
+      <button data-view="day" role="menuitemradio">Day <kbd>D</kbd></button>
+      <button data-view="3day" role="menuitemradio">3 days <kbd>3</kbd></button>
+      <button data-view="week" role="menuitemradio">Week <kbd>W</kbd></button>
+      <button data-view="month" role="menuitemradio">Month <kbd>M</kbd></button>
+      <button data-view="agenda" role="menuitemradio">Agenda <kbd>A</kbd></button>
+      <button data-view="board" role="menuitemradio">Tasks board <kbd>B</kbd></button>
+    </div>
   </div>
-  <div class="dropdown" data-ed>
-    <button class="primary" id="newBtn" title="New (N)">＋<span class="lbl-l"> New</span> ▾</button>
-    <div class="menu" id="newMenu">
-      <button data-new="event">📅 Event</button>
+  <div class="dropdown" id="addWrap" data-ed>
+    <button class="primary" id="addBtn" title="Add (N) · Quick add (Q)" aria-haspopup="true">＋<span class="lbl-l"> Add</span> ▾</button>
+    <div class="menu" id="addMenu" role="menu" aria-label="Add">
+      <div class="qa-box">
+        <label class="mh" for="qa">Quick add <span class="hint">type and press Enter</span></label>
+        <input type="text" id="qa" placeholder="Meeting tue 10-12 #Project @Brussels" autocomplete="off" aria-label="Quick add">
+        <div id="qaPrev" role="status"></div>
+        <div class="hint qa-help">e.g. <i>Draft text by fri ~2h p1</i> · <i>Σύσκεψη αύριο 11:00</i> · # project, @ place, ! calendar, ~ estimate, p1–p4, * repeat</div>
+      </div>
+      <div class="mh">Event</div>
+      <div class="add-grid">
+        <button data-new="event" data-cat="meeting">👥 Meeting</button>
+        <button data-new="event" data-cat="appointment">📌 Appointment</button>
+        <button data-new="event" data-cat="deadline">⏰ Deadline</button>
+        <button data-new="event" data-cat="travel">🧳 Travel</button>
+        <button data-new="event" data-cat="social">🎉 Social</button>
+        <button data-new="event" data-cat="other">• Other</button>
+      </div>
+      <div class="mh">More</div>
       <button data-new="task">☑ Task</button>
       <button data-new="project">📁 Project</button>
+      <button data-new="flight">✈ Flight</button>
+      <button data-new="day">🗓 Work status, location or comment…</button>
       <hr>
       <button data-new="template">🧩 From a template…</button>
       <button data-new="plan">🗓 Plan my day…</button>
+      <button data-new="icsimp">📥 Import calendar file (.ics)…</button>
+      <button data-new="csvimp">📥 Import tasks (CSV)…</button>
     </div>
   </div>
   <div class="dropdown">

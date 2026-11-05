@@ -256,8 +256,7 @@ table.rt .note{color:var(--muted);font-size:12.5px}
 }
 .topbar{gap:8px 12px;padding:10px 16px}
 .topbar .iconbtn{padding:6px 9px;min-width:34px}
-.topbar .grow{flex:1 1 220px;min-width:180px;max-width:460px;position:relative}
-#qa{width:100%;padding:7px 10px 7px 30px;border-radius:20px;background:var(--paper)}
+#qa{width:100%;padding:8px 10px;border-radius:9px;background:var(--paper)}
 .qa-ico{position:absolute;left:11px;top:7px;color:var(--muted);pointer-events:none}
 #qaPrev{position:absolute;left:0;right:0;top:40px;background:var(--paper);border:1px solid var(--line2);border-radius:12px;box-shadow:var(--shadow);padding:10px 12px;z-index:45;display:none;font-size:13px}
 #qaPrev.open{display:block}
@@ -538,7 +537,6 @@ button.danger:hover{border-color:var(--sick)}
   body.noside #side,body.notasks #tasks{display:none}
 }
 @media (max-width:700px){
-  .topbar .grow{order:10;flex-basis:100%;max-width:none}
   .topbar .hide-s{display:none}
   .frm{grid-template-columns:1fr}
   .frm .full,.frm .sec,.frm .hint{grid-column:1}
@@ -550,7 +548,7 @@ button.danger:hover{border-color:var(--sick)}
   .agi{grid-template-columns:70px 1fr}
 }
 @media print{
-  #side,#tasks,#toasts,.vtools,.topbar .grow,.topbar .dropdown,.bell,#timerSlot{display:none!important}
+  #side,#tasks,#toasts,.vtools,.topbar .dropdown,.bell,#timerSlot{display:none!important}
   .layout{grid-template-columns:1fr!important}
   .tg-body{max-height:none;overflow:visible}
   body.report-open .dlg{display:none!important}
@@ -569,10 +567,9 @@ button.danger:hover{border-color:var(--sick)}
 .topbar{flex-wrap:nowrap}
 .topbar .nav h1{font-size:18px;overflow:hidden;text-overflow:ellipsis}
 .topbar .nav{min-width:0;flex:0 1 auto}
-.topbar .grow{flex:1 1 160px;min-width:120px;max-width:380px}
 .topbar .lbl-l{display:inline}
 @media (max-width:1600px){ #userBadge{display:none} }
-@media (max-width:1450px){ .topbar .brand small,.topbar .lbl-l{display:none} .seg#viewSeg button{padding:6px 10px} }
+@media (max-width:1450px){ .topbar .brand small,.topbar .lbl-l{display:none} }
 @media (max-width:1250px){ .topbar .brand{display:none} .topbar .nav h1{font-size:16px} }
 @media (max-width:1023px){ .topbar{flex-wrap:wrap} }
 .topbar button,.topbar .brand,.topbar .badge{white-space:nowrap;flex-shrink:0}
@@ -580,7 +577,6 @@ button.danger:hover{border-color:var(--sick)}
 @media (max-width:700px){
   .topbar{gap:6px;padding:8px 10px}
   .topbar .nav h1{font-size:14px}
-  #viewSeg button{padding:5px 8px;font-size:13px}
   .vtools label,.vtools [data-zoom],.help{display:none}
   .legend-menu{position:fixed!important;left:8px!important;right:8px!important;top:auto!important;max-height:70vh}
 }
@@ -645,7 +641,7 @@ button.danger:hover{border-color:var(--sick)}
 body.detail #detail{display:block;max-width:980px;margin:18px auto 60px;padding:0 16px}
 body.detail #detail.box{background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px 18px 18px}
 body.detail .layout,body.detail #selbar,body.detail #drawer,body.detail #scrim,
-body.detail .topbar .nav,body.detail #qaWrap,body.detail #searchBtn,body.detail #viewSeg,body.detail #newBtn,body.detail #repBtn,
+body.detail .topbar .nav,body.detail #addWrap,body.detail #searchBtn,body.detail #viewWrap,body.detail #repBtn,
 body.detail #sideBtn,body.detail #tasksBtn,body.detail #bellBtn,body.detail #menuBtn,body.detail .topbar .dropdown:not(#tzWrap){display:none!important}
 body.detail .topbar{justify-content:flex-start}
 body.detail .topbar .brand{display:flex!important}
@@ -688,6 +684,25 @@ body.detail #detail:has(.dlg.page){max-width:none;margin:0;padding:0}
 .lg-ico .loc{padding:0 4px;font-size:11px}
 .vtools details.dropdown>summary{list-style:none}
 .vtools details.dropdown>summary::-webkit-details-marker{display:none}
+
+/* Add menu (quick add + all ways to add) and View menu */
+#addMenu{width:min(380px,calc(100vw - 16px));padding:8px;right:0;left:auto}
+#addMenu .mh{display:block;font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin:8px 6px 4px}
+#addMenu .mh .hint{text-transform:none;letter-spacing:0;font-weight:500}
+#addMenu .qa-box{padding:2px 4px 8px;border-bottom:1px solid var(--line)}
+#addMenu .qa-box .mh{margin-top:2px}
+#addMenu #qaPrev{position:static;display:none;box-shadow:none;margin-top:6px;border-radius:9px;padding:8px 10px}
+#addMenu #qaPrev.open{display:block}
+#addMenu .qa-help{margin-top:6px;font-size:11.5px}
+#addMenu .add-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 4px}
+#addMenu button{white-space:nowrap}
+#viewWrap .menu{min-width:190px}
+#viewSeg button{display:flex;justify-content:space-between;align-items:center;gap:16px;width:100%}
+#viewSeg button.on{font-weight:700;background:color-mix(in srgb,var(--accent) 12%,transparent)}
+#viewSeg kbd{font-size:10.5px;opacity:.7}
+#viewBtn{min-width:96px;text-align:left;white-space:nowrap}
+.topbar .nav h1{white-space:nowrap}
+@media (max-width:700px){ #addMenu{position:fixed;left:8px;right:8px;top:calc(var(--topH,58px) - 4px);width:auto;max-height:80vh;overflow:auto} }
 </style>
 </head>
 <body class="locked">
@@ -741,30 +756,47 @@ body.detail #detail:has(.dlg.page){max-width:none;margin:0;padding:0}
     <button id="tzBtn" title="Active time zone: times are entered and shown in it" aria-haspopup="true">🌍 <span id="tzLbl"></span> ▾</button>
     <div class="menu" id="tzMenu" role="menu"></div>
   </div>
-  <div class="grow" id="qaWrap">
-    <span class="qa-ico">＋</span>
-    <input type="text" id="qa" placeholder="Quick add: Meeting tue 10-12 #Project @Brussels  ·  Draft text by fri ~2h p1" autocomplete="off" aria-label="Quick add">
-    <div id="qaPrev" role="status"></div>
-  </div>
   <div class="spacer"></div>
   <button class="iconbtn" id="searchBtn" title="Search (Ctrl+K or /)" aria-label="Search">🔍</button>
-  <div class="seg" id="viewSeg" role="tablist" aria-label="View">
-    <button data-view="day" title="Day (D)">Day</button>
-    <button data-view="3day" title="3 days (3)">3 days</button>
-    <button data-view="week" title="Week (W)">Week</button>
-    <button data-view="month" title="Month (M)">Month</button>
-    <button data-view="agenda" title="Agenda (A)">Agenda</button>
-    <button data-view="board" title="Tasks board (B)">Board</button>
+  <div class="dropdown" id="viewWrap">
+    <button id="viewBtn" title="Change view (D, 3, W, M, A, B)" aria-haspopup="true" aria-label="View"><span id="viewLbl">Week</span> ▾</button>
+    <div class="menu" id="viewSeg" role="menu" aria-label="View">
+      <button data-view="day" role="menuitemradio">Day <kbd>D</kbd></button>
+      <button data-view="3day" role="menuitemradio">3 days <kbd>3</kbd></button>
+      <button data-view="week" role="menuitemradio">Week <kbd>W</kbd></button>
+      <button data-view="month" role="menuitemradio">Month <kbd>M</kbd></button>
+      <button data-view="agenda" role="menuitemradio">Agenda <kbd>A</kbd></button>
+      <button data-view="board" role="menuitemradio">Tasks board <kbd>B</kbd></button>
+    </div>
   </div>
-  <div class="dropdown" data-ed>
-    <button class="primary" id="newBtn" title="New (N)">＋<span class="lbl-l"> New</span> ▾</button>
-    <div class="menu" id="newMenu">
-      <button data-new="event">📅 Event</button>
+  <div class="dropdown" id="addWrap" data-ed>
+    <button class="primary" id="addBtn" title="Add (N) · Quick add (Q)" aria-haspopup="true">＋<span class="lbl-l"> Add</span> ▾</button>
+    <div class="menu" id="addMenu" role="menu" aria-label="Add">
+      <div class="qa-box">
+        <label class="mh" for="qa">Quick add <span class="hint">type and press Enter</span></label>
+        <input type="text" id="qa" placeholder="Meeting tue 10-12 #Project @Brussels" autocomplete="off" aria-label="Quick add">
+        <div id="qaPrev" role="status"></div>
+        <div class="hint qa-help">e.g. <i>Draft text by fri ~2h p1</i> · <i>Σύσκεψη αύριο 11:00</i> · # project, @ place, ! calendar, ~ estimate, p1–p4, * repeat</div>
+      </div>
+      <div class="mh">Event</div>
+      <div class="add-grid">
+        <button data-new="event" data-cat="meeting">👥 Meeting</button>
+        <button data-new="event" data-cat="appointment">📌 Appointment</button>
+        <button data-new="event" data-cat="deadline">⏰ Deadline</button>
+        <button data-new="event" data-cat="travel">🧳 Travel</button>
+        <button data-new="event" data-cat="social">🎉 Social</button>
+        <button data-new="event" data-cat="other">• Other</button>
+      </div>
+      <div class="mh">More</div>
       <button data-new="task">☑ Task</button>
       <button data-new="project">📁 Project</button>
+      <button data-new="flight">✈ Flight</button>
+      <button data-new="day">🗓 Work status, location or comment…</button>
       <hr>
       <button data-new="template">🧩 From a template…</button>
       <button data-new="plan">🗓 Plan my day…</button>
+      <button data-new="icsimp">📥 Import calendar file (.ics)…</button>
+      <button data-new="csvimp">📥 Import tasks (CSV)…</button>
     </div>
   </div>
   <div class="dropdown">
@@ -882,7 +914,7 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 const API = 'api.php';
 const POLL_MS = 60000;
 const SCHEMA = 2;
-const APP_VERSION = '2.7.0';   // see CHANGELOG.md
+const APP_VERSION = '2.8.0';   // see CHANGELOG.md
 const CATEGORIES = {meeting:'👥 Meeting', appointment:'📌 Appointment', deadline:'⏰ Deadline', travel:'🧳 Travel', social:'🎉 Social', other:'• Other'};
 const CAT_ICON = {meeting:'👥', appointment:'📌', deadline:'⏰', travel:'🧳', social:'🎉', other:''};
 const TASK_STATUS = {todo:'To do', 'in-progress':'In progress', waiting:'Waiting', done:'Done', cancelled:'Cancelled'};
@@ -2089,7 +2121,8 @@ function dayItems(k){ // all items of a day for chips, in display order
 /* ---------- main render ---------- */
 function render(){
   if(!data || !session) return;
-  $$('#viewSeg button').forEach(b=>{ b.classList.toggle('on', b.dataset.view===view); b.setAttribute('aria-selected', b.dataset.view===view); });
+  $$('#viewSeg button').forEach(b=>{ b.classList.toggle('on', b.dataset.view===view); b.setAttribute('aria-checked', b.dataset.view===view); });
+  $('#viewLbl').textContent={day:'Day','3day':'3 days',week:'Week',month:'Month',agenda:'Agenda',board:'Board'}[view]||'View';
   $('#ownerLbl').textContent = data.owner ? '· '+data.owner : '';
   document.title = 'Work & Travel Calendar' + (data.owner?' — '+data.owner:'');
   let html='';
@@ -4903,14 +4936,14 @@ function bindQuickAdd(){
   };
   inp.addEventListener('input',()=>{ if(!inp.value.trim()) qaOverride=null; upd(); });
   inp.addEventListener('focus',upd);
-  inp.addEventListener('blur',()=>setTimeout(()=>pv.classList.remove('open'),150));
+  inp.addEventListener('blur',()=>setTimeout(()=>{ if(!inp.value.trim()) pv.classList.remove('open'); },150));
   inp.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){ inp.value=''; qaOverride=null; pv.classList.remove('open'); inp.blur(); return; }
+    if(e.key==='Escape'){ inp.value=''; qaOverride=null; pv.classList.remove('open'); inp.blur(); $('#addMenu').classList.remove('open'); return; }
     if(e.key!=='Enter' || !inp.value.trim() || !editable) return;
     e.preventDefault();
     const it=quickToItem(parse());
     const full=e.ctrlKey||e.metaKey;
-    inp.value=''; qaOverride=null; pv.classList.remove('open');
+    inp.value=''; qaOverride=null; pv.classList.remove('open'); $('#addMenu').classList.remove('open');
     if(full) return it.type==='event'?openEventEditor(null,it):openTaskEditor(null,it);
     if(!saveNewItem(it)) return;
     toast(`${it.type==='event'?'📅':'☑'} Created “${it.title}”`,{actions:[['Undo',undo],['Edit',()=>it.type==='event'?openEventEditor(it.id):openTaskEditor(it.id)]]});
@@ -4976,14 +5009,14 @@ function bindTop(){
   $('#prev').onclick=()=>move(-1);
   $('#next').onclick=()=>move(1);
   $('#today').onclick=()=>{ cursor=TODAY(); miniCursor=null; render(); renderSide(); };
-  $$('#viewSeg button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+  $$('#viewSeg button').forEach(b=>b.onclick=()=>{ $('#viewSeg').classList.remove('open'); setView(b.dataset.view); });
   $('#scrim').onclick=closeDrawer;
   $('#searchBtn').onclick=()=>openSearch();
   $('#bellBtn').onclick=openBell;
   const small=()=>innerWidth<1024;
   $('#sideBtn').onclick=()=>{ if(small()){ document.body.classList.toggle('showside'); document.body.classList.remove('showtasks'); } else { prefs.sidePanel=!prefs.sidePanel; savePrefs(); render(); } };
   $('#tasksBtn').onclick=()=>{ if(small()){ document.body.classList.toggle('showtasks'); document.body.classList.remove('showside'); } else { prefs.tasksPanel=!prefs.tasksPanel; savePrefs(); render(); } };
-  const menus=[['#menuBtn','#menu'],['#newBtn','#newMenu'],['#repBtn','#repMenu'],['#tzBtn','#tzMenu']];
+  const menus=[['#menuBtn','#menu'],['#addBtn','#addMenu'],['#viewBtn','#viewSeg'],['#repBtn','#repMenu'],['#tzBtn','#tzMenu']];
   for(const [b,m] of menus) $(b).onclick=e=>{ e.stopPropagation(); for(const [,o] of menus) if(o!==m) $(o).classList.remove('open'); $(m).classList.toggle('open'); };
   document.addEventListener('click',e=>{ for(const [,m] of menus) if(!e.target.closest(m)) $(m).classList.remove('open'); $$('details.dropdown[open]').forEach(dt=>{ if(!dt.contains(e.target)) dt.open=false; }); });
   $('#tzBtn').addEventListener('click',renderTzMenu,true);
@@ -4991,7 +5024,8 @@ function bindTop(){
     let tz=b.dataset.tz;
     if(tz==='?'){ tz=await promptDlg('Other time zone','IANA time zone name, e.g. Europe/Madrid, America/New_York, Asia/Tokyo', ACTIVE_TZ,{validate:v=>validTz(v.trim())?null:'Unknown time zone name.'}); if(!tz) return; tz=tz.trim(); }
     setActiveTz(tz); };
-  $('#newMenu').onclick=e=>{ const b=e.target.closest('[data-new]'); if(!b) return; $('#newMenu').classList.remove('open'); newThing(b.dataset.new); };
+  $('#addMenu').onclick=e=>{ const b=e.target.closest('[data-new]'); if(!b) return; $('#addMenu').classList.remove('open'); newThing(b.dataset.new, b.dataset.cat); };
+  $('#addBtn').addEventListener('click',()=>{ if($('#addMenu').classList.contains('open')) setTimeout(()=>$('#qa').focus(),0); });
   $('#repMenu').onclick=e=>{ const b=e.target.closest('[data-rep]'); if(!b) return; $('#repMenu').classList.remove('open'); openReports(b.dataset.rep); };
   $('#menu').onclick=e=>{
     const b=e.target.closest('[data-act]'); if(!b||b.disabled) return;
@@ -5043,13 +5077,46 @@ function tzTravelPrompt(){
   const k='wtc-tzsug:'+todayKey()+':'+sug.tz; if(safeGet(k)) return; safeSet(k,'1');
   toast(`📍 Your flights show you in ${sug.city} today. Show times in ${tzShort(sug.tz)} time?`,{actions:[['Switch to '+tzShort(sug.tz),()=>setActiveTz(sug.tz)]],ms:15000});
 }
-function newThing(kind){
+function newThing(kind, cat){
   if(!editable) return;
-  if(kind==='event'){ const k=view==='month'?key(cursor):(gridDays.includes(todayKey())?todayKey():key(cursor)); const n=new Date(NOW()); const st=k===todayKey()?minToHM(Math.min(23*60,Math.ceil((n.getHours()*60+n.getMinutes())/30)*30)):S().workStart; return openEventEditor(null,newEvent({start:k+'T'+st,end:localAddMin(k+'T'+st,S().defaultEventMin||60),tz:locTz(k)})); }
+  const k = view==='month'||view==='agenda'||view==='board' ? (key(cursor)<=todayKey() && key(addDays(cursor,40))>=todayKey() ? todayKey() : key(cursor))
+          : (gridDays.includes(todayKey())?todayKey():key(cursor));
+  if(kind==='event'){
+    const n=new Date(NOW()); const st=k===todayKey()?minToHM(Math.min(23*60,Math.ceil((n.getHours()*60+n.getMinutes())/30)*30)):S().workStart;
+    const allDay = cat==='deadline';
+    const e=newEvent({category:cat||'meeting', start:k+'T'+st, end:localAddMin(k+'T'+st,S().defaultEventMin||60), tz:ACTIVE_TZ});
+    if(allDay){ e.allDay=true; e.start=k; e.end=k; delete e.tz; }
+    return openEventEditor(null,e);
+  }
   if(kind==='task') return openTaskEditor(null);
   if(kind==='project') return openProjectEditor(null);
+  if(kind==='flight') return openAddFlight(k);
+  if(kind==='day'){ cursor=fromKey(k); render(); return openDrawer(k); }
   if(kind==='template') return openTemplates();
   if(kind==='plan') return openPlanDay();
+  if(kind==='icsimp') return pickFile('.ics,text/calendar',importIcsFile);
+  if(kind==='csvimp') return pickFile('.csv,text/csv,.txt',importCsvFile);
+}
+/* add a flight without opening the day */
+function openAddFlight(k){
+  const last=locationOf(k), from=last?last.name:'Athens', to=from.toLowerCase()==='athens'?'Brussels':'Athens';
+  const d=openDialog(`<div class="dhd"><h2>✈ Add a flight</h2><button class="ghost" data-close aria-label="Close">✕</button></div>
+    <form class="frm">
+      <label>Date</label><input type="date" name="d" value="${k}" required>
+      <label>From</label><input type="text" name="from" value="${esc(from)}" list="flCities" required>
+      <label>To</label><input type="text" name="to" value="${esc(to)}" list="flCities" required>
+      <datalist id="flCities">${Object.keys(CITY_TZ).map(c=>`<option value="${esc(c.replace(/\b\w/g,x=>x.toUpperCase()))}">`).join('')}</datalist>
+      <label>When</label><div class="row">${Object.entries(FLIGHT_TIMES).map(([t,l],i)=>`<label class="hint"><input type="radio" name="t" value="${t}" ${i===0?'checked':''}> ${l} ${minToHM(FLIGHT_WINDOWS[t][0])}–${FLIGHT_WINDOWS[t][1]>=1440?'24:00':minToHM(FLIGHT_WINDOWS[t][1])}</label>`).join(' ')}</div>
+      <label>Flight no.</label><input type="text" name="note" placeholder="e.g. A3 610 (optional)">
+      <div class="full hint">Exact times and the alarm can be changed afterwards in the flight's details.</div>
+    </form>
+    <div class="dacts"><span class="sp"></span><button data-close>Cancel</button><button class="primary" data-go>Add flight</button></div>`,{size:'narrow',focus:'[name=from]'});
+  const F=$('form',d);
+  const go=()=>{ if(!F.reportValidity()) return; const v=n=>$(`[name=${n}]`,F).value.trim(), day2=v('d');
+    const m=dayMut(day2); (m.flights=m.flights||[]).push({from:v('from'), to:v('to'), time:$('[name=t]:checked',F).value, ...(v('note')?{note:v('note')}:{})});
+    changed(); closeDialog(d); cursor=fromKey(day2); renderAll();
+    toast(`✈ Flight ${code(v('from'))} → ${code(v('to'))} added on ${fmtShort(fromKey(day2))}`,{actions:[['Undo',undo],['Details',()=>openFlight(day2, m.flights.length-1)]]}); };
+  $('[data-go]',d).onclick=go; F.onsubmit=e=>{ e.preventDefault(); go(); };
 }
 
 /* ---------- keyboard ---------- */
@@ -5057,6 +5124,7 @@ document.addEventListener('keydown',e=>{
   if(document.body.classList.contains('locked')) return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
   if(e.key==='Escape'){
+    const om=$('.topbar .menu.open'); if(om){ om.classList.remove('open'); return; }
     if($('#focus').classList.contains('open')){ endFocus(); return; }
     if($('#pop')){ closePopover(); return; }
     if(_dlgStack.length){ if(!topDialog()._page) closeDialog(); return; }
@@ -5077,8 +5145,8 @@ document.addEventListener('keydown',e=>{
   if(lk==='t') $('#today').click();
   else if(lk==='d') setView('day'); else if(k==='3') setView('3day'); else if(lk==='w') setView('week'); else if(lk==='m') setView('month'); else if(lk==='a') setView('agenda'); else if(lk==='b') setView('board');
   else if(k==='/'){ e.preventDefault(); openSearch(); }
-  else if(lk==='q'){ e.preventDefault(); $('#qa').focus(); }
-  else if(lk==='n' && editable){ e.preventDefault(); $('#newMenu').classList.add('open'); $('#newMenu button').focus(); }
+  else if(lk==='q' && editable){ e.preventDefault(); $('#addMenu').classList.add('open'); $('#qa').focus(); }
+  else if(lk==='n' && editable){ e.preventDefault(); $('#addMenu').classList.add('open'); $('#addMenu [data-new]').focus(); }
   else if(lk==='p') openPlanDay();
   else if(k==='?') openHelp();
   else if(lk==='e' && selItem){ const it=findItem(selItem.id); if(it) it.type==='event'?openEventEditor(it.id,null,selItem.occ):openTaskEditor(it.id); }

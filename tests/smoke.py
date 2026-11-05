@@ -21,7 +21,7 @@ async def main():
         print('dialog:', await page.locator('.dlg h3').first.inner_text() if await page.locator('.dlg').count() else None)
         await page.keyboard.press('Escape'); await page.wait_for_timeout(300)
         for v in ['week','month','day','agenda','board']:
-            await page.click(f'#viewSeg [data-view={v}]'); await page.wait_for_timeout(400)
+            await page.click('#viewBtn'); await page.click(f'#viewSeg [data-view="{v}"]'); await page.wait_for_timeout(400)
             await page.screenshot(path=SH+f'smoke-{v}.png')
         print('ERRORS:', errs[:20])
         await b.close()

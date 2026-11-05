@@ -57,14 +57,14 @@ function bindTop(){
   $('#prev').onclick=()=>move(-1);
   $('#next').onclick=()=>move(1);
   $('#today').onclick=()=>{ cursor=TODAY(); miniCursor=null; render(); renderSide(); };
-  $$('#viewSeg button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+  $$('#viewSeg button').forEach(b=>b.onclick=()=>{ $('#viewSeg').classList.remove('open'); setView(b.dataset.view); });
   $('#scrim').onclick=closeDrawer;
   $('#searchBtn').onclick=()=>openSearch();
   $('#bellBtn').onclick=openBell;
   const small=()=>innerWidth<1024;
   $('#sideBtn').onclick=()=>{ if(small()){ document.body.classList.toggle('showside'); document.body.classList.remove('showtasks'); } else { prefs.sidePanel=!prefs.sidePanel; savePrefs(); render(); } };
   $('#tasksBtn').onclick=()=>{ if(small()){ document.body.classList.toggle('showtasks'); document.body.classList.remove('showside'); } else { prefs.tasksPanel=!prefs.tasksPanel; savePrefs(); render(); } };
-  const menus=[['#menuBtn','#menu'],['#newBtn','#newMenu'],['#repBtn','#repMenu'],['#tzBtn','#tzMenu']];
+  const menus=[['#menuBtn','#menu'],['#addBtn','#addMenu'],['#viewBtn','#viewSeg'],['#repBtn','#repMenu'],['#tzBtn','#tzMenu']];
   for(const [b,m] of menus) $(b).onclick=e=>{ e.stopPropagation(); for(const [,o] of menus) if(o!==m) $(o).classList.remove('open'); $(m).classList.toggle('open'); };
   document.addEventListener('click',e=>{ for(const [,m] of menus) if(!e.target.closest(m)) $(m).classList.remove('open'); $$('details.dropdown[open]').forEach(dt=>{ if(!dt.contains(e.target)) dt.open=false; }); });
   $('#tzBtn').addEventListener('click',renderTzMenu,true);
@@ -72,7 +72,8 @@ function bindTop(){
     let tz=b.dataset.tz;
     if(tz==='?'){ tz=await promptDlg('Other time zone','IANA time zone name, e.g. Europe/Madrid, America/New_York, Asia/Tokyo', ACTIVE_TZ,{validate:v=>validTz(v.trim())?null:'Unknown time zone name.'}); if(!tz) return; tz=tz.trim(); }
     setActiveTz(tz); };
-  $('#newMenu').onclick=e=>{ const b=e.target.closest('[data-new]'); if(!b) return; $('#newMenu').classList.remove('open'); newThing(b.dataset.new); };
+  $('#addMenu').onclick=e=>{ const b=e.target.closest('[data-new]'); if(!b) return; $('#addMenu').classList.remove('open'); newThing(b.dataset.new, b.dataset.cat); };
+  $('#addBtn').addEventListener('click',()=>{ if($('#addMenu').classList.contains('open')) setTimeout(()=>$('#qa').focus(),0); });
   $('#repMenu').onclick=e=>{ const b=e.target.closest('[data-rep]'); if(!b) return; $('#repMenu').classList.remove('open'); openReports(b.dataset.rep); };
   $('#menu').onclick=e=>{
     const b=e.target.closest('[data-act]'); if(!b||b.disabled) return;
@@ -124,13 +125,46 @@ function tzTravelPrompt(){
   const k='wtc-tzsug:'+todayKey()+':'+sug.tz; if(safeGet(k)) return; safeSet(k,'1');
   toast(`📍 Your flights show you in ${sug.city} today. Show times in ${tzShort(sug.tz)} time?`,{actions:[['Switch to '+tzShort(sug.tz),()=>setActiveTz(sug.tz)]],ms:15000});
 }
-function newThing(kind){
+function newThing(kind, cat){
   if(!editable) return;
-  if(kind==='event'){ const k=view==='month'?key(cursor):(gridDays.includes(todayKey())?todayKey():key(cursor)); const n=new Date(NOW()); const st=k===todayKey()?minToHM(Math.min(23*60,Math.ceil((n.getHours()*60+n.getMinutes())/30)*30)):S().workStart; return openEventEditor(null,newEvent({start:k+'T'+st,end:localAddMin(k+'T'+st,S().defaultEventMin||60),tz:locTz(k)})); }
+  const k = view==='month'||view==='agenda'||view==='board' ? (key(cursor)<=todayKey() && key(addDays(cursor,40))>=todayKey() ? todayKey() : key(cursor))
+          : (gridDays.includes(todayKey())?todayKey():key(cursor));
+  if(kind==='event'){
+    const n=new Date(NOW()); const st=k===todayKey()?minToHM(Math.min(23*60,Math.ceil((n.getHours()*60+n.getMinutes())/30)*30)):S().workStart;
+    const allDay = cat==='deadline';
+    const e=newEvent({category:cat||'meeting', start:k+'T'+st, end:localAddMin(k+'T'+st,S().defaultEventMin||60), tz:ACTIVE_TZ});
+    if(allDay){ e.allDay=true; e.start=k; e.end=k; delete e.tz; }
+    return openEventEditor(null,e);
+  }
   if(kind==='task') return openTaskEditor(null);
   if(kind==='project') return openProjectEditor(null);
+  if(kind==='flight') return openAddFlight(k);
+  if(kind==='day'){ cursor=fromKey(k); render(); return openDrawer(k); }
   if(kind==='template') return openTemplates();
   if(kind==='plan') return openPlanDay();
+  if(kind==='icsimp') return pickFile('.ics,text/calendar',importIcsFile);
+  if(kind==='csvimp') return pickFile('.csv,text/csv,.txt',importCsvFile);
+}
+/* add a flight without opening the day */
+function openAddFlight(k){
+  const last=locationOf(k), from=last?last.name:'Athens', to=from.toLowerCase()==='athens'?'Brussels':'Athens';
+  const d=openDialog(`<div class="dhd"><h2>✈ Add a flight</h2><button class="ghost" data-close aria-label="Close">✕</button></div>
+    <form class="frm">
+      <label>Date</label><input type="date" name="d" value="${k}" required>
+      <label>From</label><input type="text" name="from" value="${esc(from)}" list="flCities" required>
+      <label>To</label><input type="text" name="to" value="${esc(to)}" list="flCities" required>
+      <datalist id="flCities">${Object.keys(CITY_TZ).map(c=>`<option value="${esc(c.replace(/\b\w/g,x=>x.toUpperCase()))}">`).join('')}</datalist>
+      <label>When</label><div class="row">${Object.entries(FLIGHT_TIMES).map(([t,l],i)=>`<label class="hint"><input type="radio" name="t" value="${t}" ${i===0?'checked':''}> ${l} ${minToHM(FLIGHT_WINDOWS[t][0])}–${FLIGHT_WINDOWS[t][1]>=1440?'24:00':minToHM(FLIGHT_WINDOWS[t][1])}</label>`).join(' ')}</div>
+      <label>Flight no.</label><input type="text" name="note" placeholder="e.g. A3 610 (optional)">
+      <div class="full hint">Exact times and the alarm can be changed afterwards in the flight's details.</div>
+    </form>
+    <div class="dacts"><span class="sp"></span><button data-close>Cancel</button><button class="primary" data-go>Add flight</button></div>`,{size:'narrow',focus:'[name=from]'});
+  const F=$('form',d);
+  const go=()=>{ if(!F.reportValidity()) return; const v=n=>$(`[name=${n}]`,F).value.trim(), day2=v('d');
+    const m=dayMut(day2); (m.flights=m.flights||[]).push({from:v('from'), to:v('to'), time:$('[name=t]:checked',F).value, ...(v('note')?{note:v('note')}:{})});
+    changed(); closeDialog(d); cursor=fromKey(day2); renderAll();
+    toast(`✈ Flight ${code(v('from'))} → ${code(v('to'))} added on ${fmtShort(fromKey(day2))}`,{actions:[['Undo',undo],['Details',()=>openFlight(day2, m.flights.length-1)]]}); };
+  $('[data-go]',d).onclick=go; F.onsubmit=e=>{ e.preventDefault(); go(); };
 }
 
 /* ---------- keyboard ---------- */
@@ -138,6 +172,7 @@ document.addEventListener('keydown',e=>{
   if(document.body.classList.contains('locked')) return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
   if(e.key==='Escape'){
+    const om=$('.topbar .menu.open'); if(om){ om.classList.remove('open'); return; }
     if($('#focus').classList.contains('open')){ endFocus(); return; }
     if($('#pop')){ closePopover(); return; }
     if(_dlgStack.length){ if(!topDialog()._page) closeDialog(); return; }
@@ -158,8 +193,8 @@ document.addEventListener('keydown',e=>{
   if(lk==='t') $('#today').click();
   else if(lk==='d') setView('day'); else if(k==='3') setView('3day'); else if(lk==='w') setView('week'); else if(lk==='m') setView('month'); else if(lk==='a') setView('agenda'); else if(lk==='b') setView('board');
   else if(k==='/'){ e.preventDefault(); openSearch(); }
-  else if(lk==='q'){ e.preventDefault(); $('#qa').focus(); }
-  else if(lk==='n' && editable){ e.preventDefault(); $('#newMenu').classList.add('open'); $('#newMenu button').focus(); }
+  else if(lk==='q' && editable){ e.preventDefault(); $('#addMenu').classList.add('open'); $('#qa').focus(); }
+  else if(lk==='n' && editable){ e.preventDefault(); $('#addMenu').classList.add('open'); $('#addMenu [data-new]').focus(); }
   else if(lk==='p') openPlanDay();
   else if(k==='?') openHelp();
   else if(lk==='e' && selItem){ const it=findItem(selItem.id); if(it) it.type==='event'?openEventEditor(it.id,null,selItem.occ):openTaskEditor(it.id); }

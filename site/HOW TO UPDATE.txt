@@ -136,3 +136,9 @@ EDIT IN A NEW TAB (5 Nov 2026, version 2.6.0)
 
 LEGEND (5 Nov 2026, version 2.7.0)
   The legend is now the "ℹ Legend ▾" button in the toolbar above the calendar.
+
+ADD MENU AND VIEW MENU (5 Nov 2026, version 2.8.0)
+  "＋ Add ▾" holds quick add and every way to add something (event types,
+  task, project, flight, day status, templates, imports). "View ▾" switches
+  between Day, 3 days, Week, Month, Agenda and Board. Keys: Q quick add,
+  N add menu, D 3 W M A B views.

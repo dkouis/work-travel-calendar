@@ -3,6 +3,22 @@
 All notable changes to the Work & Travel Calendar. Dates are Athens time.
 "Upload" says which server files changed; the `data` folder (calendar, accounts, passwords) is never replaced.
 
+## [2.8.0] – 2026-11-05 — Add menu and View menu
+Upload: `index.php`
+
+### Changed
+- The quick-add text box and the "＋ New" button are combined into one **＋ Add ▾** menu:
+  - **Quick add** field at the top (type and press Enter; the preview shows inside the menu).
+  - **Event** by type: Meeting, Appointment, Deadline (all-day), Travel, Social, Other; the editor opens with that type chosen.
+  - **Task**, **Project**, **Flight** (new small window: date, from, to, Morning/Noon/Night, flight number), **Work status, location or comment** (opens the day).
+  - **From a template**, **Plan my day**, **Import calendar file (.ics)**, **Import tasks (CSV)**.
+  - Keyboard: **Q** opens it with the quick-add field ready, **N** opens it on the first option, **Esc** closes it.
+- The Day / 3 days / Week / Month / Agenda / Board buttons are now one **View ▾** menu showing the current view's name; the shortcut keys are listed in it.
+- The space saved lets the full date title fit (for example "Monday, 2 November 2026" or "Week 45 · 2–8 Nov 2026"), also on phones.
+
+### Fixed
+- New events from the menu use the active time zone (they used the day's location).
+
 ## [2.7.0] – 2026-11-05 — Legend in a dropdown
 Upload: `index.php`
 
@@ -122,6 +138,7 @@ Upload: `index.php` and the installable-app files
 - Work status, location, flights and comments per day; Week and Month views; Trips report.
 - 1 Nov 2026: moved from a single HTML file to the PHP version (`index.php` + `api.php`) with server accounts, automatic saving and version history.
 
+[2.8.0]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.7.0]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.6.0]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.5.0]: https://github.com/dkouis/work-travel-calendar/commits/main

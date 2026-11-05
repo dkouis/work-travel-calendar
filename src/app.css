@@ -5,8 +5,7 @@
 }
 .topbar{gap:8px 12px;padding:10px 16px}
 .topbar .iconbtn{padding:6px 9px;min-width:34px}
-.topbar .grow{flex:1 1 220px;min-width:180px;max-width:460px;position:relative}
-#qa{width:100%;padding:7px 10px 7px 30px;border-radius:20px;background:var(--paper)}
+#qa{width:100%;padding:8px 10px;border-radius:9px;background:var(--paper)}
 .qa-ico{position:absolute;left:11px;top:7px;color:var(--muted);pointer-events:none}
 #qaPrev{position:absolute;left:0;right:0;top:40px;background:var(--paper);border:1px solid var(--line2);border-radius:12px;box-shadow:var(--shadow);padding:10px 12px;z-index:45;display:none;font-size:13px}
 #qaPrev.open{display:block}
@@ -287,7 +286,6 @@ button.danger:hover{border-color:var(--sick)}
   body.noside #side,body.notasks #tasks{display:none}
 }
 @media (max-width:700px){
-  .topbar .grow{order:10;flex-basis:100%;max-width:none}
   .topbar .hide-s{display:none}
   .frm{grid-template-columns:1fr}
   .frm .full,.frm .sec,.frm .hint{grid-column:1}
@@ -299,7 +297,7 @@ button.danger:hover{border-color:var(--sick)}
   .agi{grid-template-columns:70px 1fr}
 }
 @media print{
-  #side,#tasks,#toasts,.vtools,.topbar .grow,.topbar .dropdown,.bell,#timerSlot{display:none!important}
+  #side,#tasks,#toasts,.vtools,.topbar .dropdown,.bell,#timerSlot{display:none!important}
   .layout{grid-template-columns:1fr!important}
   .tg-body{max-height:none;overflow:visible}
   body.report-open .dlg{display:none!important}
@@ -318,10 +316,9 @@ button.danger:hover{border-color:var(--sick)}
 .topbar{flex-wrap:nowrap}
 .topbar .nav h1{font-size:18px;overflow:hidden;text-overflow:ellipsis}
 .topbar .nav{min-width:0;flex:0 1 auto}
-.topbar .grow{flex:1 1 160px;min-width:120px;max-width:380px}
 .topbar .lbl-l{display:inline}
 @media (max-width:1600px){ #userBadge{display:none} }
-@media (max-width:1450px){ .topbar .brand small,.topbar .lbl-l{display:none} .seg#viewSeg button{padding:6px 10px} }
+@media (max-width:1450px){ .topbar .brand small,.topbar .lbl-l{display:none} }
 @media (max-width:1250px){ .topbar .brand{display:none} .topbar .nav h1{font-size:16px} }
 @media (max-width:1023px){ .topbar{flex-wrap:wrap} }
 .topbar button,.topbar .brand,.topbar .badge{white-space:nowrap;flex-shrink:0}
@@ -329,7 +326,6 @@ button.danger:hover{border-color:var(--sick)}
 @media (max-width:700px){
   .topbar{gap:6px;padding:8px 10px}
   .topbar .nav h1{font-size:14px}
-  #viewSeg button{padding:5px 8px;font-size:13px}
   .vtools label,.vtools [data-zoom],.help{display:none}
   .legend-menu{position:fixed!important;left:8px!important;right:8px!important;top:auto!important;max-height:70vh}
 }
@@ -394,7 +390,7 @@ button.danger:hover{border-color:var(--sick)}
 body.detail #detail{display:block;max-width:980px;margin:18px auto 60px;padding:0 16px}
 body.detail #detail.box{background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px 18px 18px}
 body.detail .layout,body.detail #selbar,body.detail #drawer,body.detail #scrim,
-body.detail .topbar .nav,body.detail #qaWrap,body.detail #searchBtn,body.detail #viewSeg,body.detail #newBtn,body.detail #repBtn,
+body.detail .topbar .nav,body.detail #addWrap,body.detail #searchBtn,body.detail #viewWrap,body.detail #repBtn,
 body.detail #sideBtn,body.detail #tasksBtn,body.detail #bellBtn,body.detail #menuBtn,body.detail .topbar .dropdown:not(#tzWrap){display:none!important}
 body.detail .topbar{justify-content:flex-start}
 body.detail .topbar .brand{display:flex!important}
@@ -437,3 +433,22 @@ body.detail #detail:has(.dlg.page){max-width:none;margin:0;padding:0}
 .lg-ico .loc{padding:0 4px;font-size:11px}
 .vtools details.dropdown>summary{list-style:none}
 .vtools details.dropdown>summary::-webkit-details-marker{display:none}
+
+/* Add menu (quick add + all ways to add) and View menu */
+#addMenu{width:min(380px,calc(100vw - 16px));padding:8px;right:0;left:auto}
+#addMenu .mh{display:block;font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin:8px 6px 4px}
+#addMenu .mh .hint{text-transform:none;letter-spacing:0;font-weight:500}
+#addMenu .qa-box{padding:2px 4px 8px;border-bottom:1px solid var(--line)}
+#addMenu .qa-box .mh{margin-top:2px}
+#addMenu #qaPrev{position:static;display:none;box-shadow:none;margin-top:6px;border-radius:9px;padding:8px 10px}
+#addMenu #qaPrev.open{display:block}
+#addMenu .qa-help{margin-top:6px;font-size:11.5px}
+#addMenu .add-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 4px}
+#addMenu button{white-space:nowrap}
+#viewWrap .menu{min-width:190px}
+#viewSeg button{display:flex;justify-content:space-between;align-items:center;gap:16px;width:100%}
+#viewSeg button.on{font-weight:700;background:color-mix(in srgb,var(--accent) 12%,transparent)}
+#viewSeg kbd{font-size:10.5px;opacity:.7}
+#viewBtn{min-width:96px;text-align:left;white-space:nowrap}
+.topbar .nav h1{white-space:nowrap}
+@media (max-width:700px){ #addMenu{position:fixed;left:8px;right:8px;top:calc(var(--topH,58px) - 4px);width:auto;max-height:80vh;overflow:auto} }

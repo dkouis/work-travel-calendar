@@ -97,7 +97,8 @@ function dayItems(k){ // all items of a day for chips, in display order
 /* ---------- main render ---------- */
 function render(){
   if(!data || !session) return;
-  $$('#viewSeg button').forEach(b=>{ b.classList.toggle('on', b.dataset.view===view); b.setAttribute('aria-selected', b.dataset.view===view); });
+  $$('#viewSeg button').forEach(b=>{ b.classList.toggle('on', b.dataset.view===view); b.setAttribute('aria-checked', b.dataset.view===view); });
+  $('#viewLbl').textContent={day:'Day','3day':'3 days',week:'Week',month:'Month',agenda:'Agenda',board:'Board'}[view]||'View';
   $('#ownerLbl').textContent = data.owner ? '· '+data.owner : '';
   document.title = 'Work & Travel Calendar' + (data.owner?' — '+data.owner:'');
   let html='';

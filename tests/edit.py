@@ -76,7 +76,7 @@ async def main():
         await dtab.close()
         # ---- new event from the ＋ New menu (draft handed to the tab)
         await m.bring_to_front()
-        async with c.expect_page() as np: await m.click('#newBtn'); await m.click('[data-new=event]')
+        async with c.expect_page() as np: await m.click('#addBtn'); await m.click('#addMenu [data-cat=meeting]')
         nt=await np.value; await nt.wait_for_selector('.dlg.page [name=title]', timeout=10000)
         ok('New event opens an empty editor in a new tab', 'draft=' in nt.url and await nt.input_value('.dlg.page [name=title]')=='')
         ok('draft hand-over is removed from browser storage', await nt.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('wtc-draft:')).length")==0)

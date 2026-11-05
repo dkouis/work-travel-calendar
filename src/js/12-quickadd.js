@@ -118,14 +118,14 @@ function bindQuickAdd(){
   };
   inp.addEventListener('input',()=>{ if(!inp.value.trim()) qaOverride=null; upd(); });
   inp.addEventListener('focus',upd);
-  inp.addEventListener('blur',()=>setTimeout(()=>pv.classList.remove('open'),150));
+  inp.addEventListener('blur',()=>setTimeout(()=>{ if(!inp.value.trim()) pv.classList.remove('open'); },150));
   inp.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){ inp.value=''; qaOverride=null; pv.classList.remove('open'); inp.blur(); return; }
+    if(e.key==='Escape'){ inp.value=''; qaOverride=null; pv.classList.remove('open'); inp.blur(); $('#addMenu').classList.remove('open'); return; }
     if(e.key!=='Enter' || !inp.value.trim() || !editable) return;
     e.preventDefault();
     const it=quickToItem(parse());
     const full=e.ctrlKey||e.metaKey;
-    inp.value=''; qaOverride=null; pv.classList.remove('open');
+    inp.value=''; qaOverride=null; pv.classList.remove('open'); $('#addMenu').classList.remove('open');
     if(full) return it.type==='event'?openEventEditor(null,it):openTaskEditor(null,it);
     if(!saveNewItem(it)) return;
     toast(`${it.type==='event'?'📅':'☑'} Created “${it.title}”`,{actions:[['Undo',undo],['Edit',()=>it.type==='event'?openEventEditor(it.id):openTaskEditor(it.id)]]});
