@@ -96,4 +96,4 @@ Upload: `index.php` and the installable-app files
 - Work status, location, flights and comments per day; Week and Month views; Trips report.
 - 1 Nov 2026: moved from a single HTML file to the PHP version (`index.php` + `api.php`) with server accounts, automatic saving and version history.
 
-[2.5.0]: https://github.com/dkouis/work-travel-calendar/releases/tag/v2.5.0
+[2.5.0]: https://github.com/dkouis/work-travel-calendar/commits/main
