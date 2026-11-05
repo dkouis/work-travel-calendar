@@ -413,3 +413,11 @@ body.detail .topbar .brand{display:flex!important}
 @media print{ body.detail .topbar,body.detail .dt-acts{display:none!important} }
 .dt-card .warnbox{margin-top:12px}
 .chip.loc-on .hint{color:inherit;opacity:.85}
+/* edit windows as a full page in their own tab */
+.dlg.page{position:static;inset:auto;background:none;padding:18px 16px 60px;display:block;overflow:visible;z-index:auto}
+.dlg.page .box{width:min(1000px,100%);margin:0 auto;border-radius:16px;min-height:0}
+.dlg.page .box .frm{grid-template-columns:150px minmax(0,1fr)}
+.dlg.page .mde textarea{min-height:240px}
+.dlg.page .dacts{position:sticky;bottom:0;background:var(--paper);padding:12px 0 4px;border-top:1px solid var(--line);margin-top:18px;z-index:2}
+body.detail #detail:has(.dlg.page){max-width:none;margin:0;padding:0}
+@media (max-width:700px){ .dlg.page{padding:0 0 40px} .dlg.page .box{border-radius:0} .dlg.page .box .frm{grid-template-columns:1fr} }

@@ -3,6 +3,21 @@
 All notable changes to the Work & Travel Calendar. Dates are Athens time.
 "Upload" says which server files changed; the `data` folder (calendar, accounts, passwords) is never replaced.
 
+## [2.6.0] – 2026-11-05 — Edit in a new tab
+Upload: `index.php`
+
+### Added
+- The **edit window** of every item type (events of all types, tasks, projects) opens as a **full page in a new browser tab**, for more room: wider fields and a taller Markdown notes editor; Save and Cancel stay visible at the bottom.
+  - Opens from everywhere an editor opened before: the tasks panel, the board, a details tab's **Edit**, the popup's **Edit**, ＋ New (event, task, project), the grid's "More options…", quick add with Ctrl+Enter, search results and project pages.
+  - New items are handed to the tab through the browser's storage, which is cleared as soon as the tab reads them.
+  - Editing the same item again brings its edit tab to the front.
+- **Save** waits until the change has reached the server, then closes the tab. The calendar and details tabs update by themselves.
+- **Cancel** with unsaved changes asks "Discard changes?"; Escape never closes the edit page; the browser warns before closing the tab with unsaved changes.
+- **Delete** from the edit tab closes it after deleting; cancelling the delete returns to the editor.
+- If saving fails (no connection, or someone else saved at the same moment), the tab stays open and the message at the top explains what to do.
+- Setting **⚙ Settings → General → Edit windows**: "In a new browser tab" (default) or "In a popup on the calendar" (previous behaviour).
+- Viewers get a read-only page in the tab.
+
 ## [2.5.0] – 2026-11-05 — Details in a new tab
 Upload: `index.php`
 
@@ -96,4 +111,5 @@ Upload: `index.php` and the installable-app files
 - Work status, location, flights and comments per day; Week and Month views; Trips report.
 - 1 Nov 2026: moved from a single HTML file to the PHP version (`index.php` + `api.php`) with server accounts, automatic saving and version history.
 
+[2.6.0]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.5.0]: https://github.com/dkouis/work-travel-calendar/commits/main

@@ -140,7 +140,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if($('#focus').classList.contains('open')){ endFocus(); return; }
     if($('#pop')){ closePopover(); return; }
-    if(_dlgStack.length){ closeDialog(); return; }
+    if(_dlgStack.length){ if(!topDialog()._page) closeDialog(); return; }
     if(openDay){ closeDrawer(); return; }
     if(selected.size||selTasks.size){ selected.clear(); selTasks.clear(); renderAll(); return; }
     return;

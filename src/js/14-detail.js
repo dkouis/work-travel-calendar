@@ -10,8 +10,9 @@
    ============================================================ */
 const DETAIL = (()=>{
   const h=new URLSearchParams(location.hash.slice(1)), t=h.get('open');
-  if(!['event','project','flight'].includes(t)) return null;
-  return {t, id:h.get('id')||'', occ:h.get('occ')||'', k:h.get('day')||'', i:+(h.get('n')||0), from:h.get('from')||'', to:h.get('to')||''};
+  if(!['event','project','flight','edit'].includes(t)) return null;
+  return {t, id:h.get('id')||'', occ:h.get('occ')||'', k:h.get('day')||'', i:+(h.get('n')||0), from:h.get('from')||'', to:h.get('to')||'',
+          type:h.get('type')||'', draft:h.get('draft')||''};
 })();
 if(DETAIL) document.body.classList.add('detail'); else { try{ if(!window.name || !window.name.startsWith('wtc-')) window.name='wtc-main'; }catch(e){} }
 
@@ -19,6 +20,7 @@ function useTabs(){ return !!DETAIL || (prefs.openDetails||'tab')!=='popup'; }
 function detailUrl(o){
   const p=new URLSearchParams({open:o.t});
   if(o.id) p.set('id',o.id); if(o.occ) p.set('occ',o.occ);
+  if(o.t==='edit'){ p.set('type',o.type); if(o.draft) p.set('draft',o.draft); }
   if(o.t==='flight'){ p.set('day',o.k); p.set('n',o.i); const f=(day(o.k).flights||[])[o.i]; if(f){ p.set('from',f.from||''); p.set('to',f.to||''); } }
   return location.pathname+location.search+'#'+p.toString();
 }
@@ -62,6 +64,7 @@ function renderDetail(){
   el.classList.remove('box');
   if(DETAIL.t==='event') return renderEventDetail(el);
   if(DETAIL.t==='flight') return renderFlightDetail(el);
+  if(DETAIL.t==='edit') return renderEditPage(el);
 }
 function renderDetailMissing(kind){
   const el=$('#detail'); document.title='Not found · Work & Travel';
@@ -193,3 +196,83 @@ function renderFlightDetail(el){
     day(k).flights.splice(detailFlight().i,1); prune(k); changed(); renderAll(); toast('Flight deleted',{actions:[['Undo',undo]]});
   };
 }
+
+/* ============================================================
+   Edit windows in their own tab (events, tasks, projects)
+   URL:  index.php#open=edit&type=event|task|project&id=…[&occ=…]
+         new items: …&draft=<key>  (the draft is handed over through this
+         browser's storage and removed as soon as the tab reads it)
+   The editor fills the page; Save or Cancel closes the tab once the
+   change has reached the server. Setting: ⚙ General → Edit windows.
+   ============================================================ */
+let FORCE_DIALOG=false;
+function editInTab(){ return !FORCE_DIALOG && !EDIT_PAGE_PENDING && (prefs.openEditors||'tab')!=='popup' && !!session; }
+function openEditTab(type, id, draft, occ, opts){
+  const o={t:'edit', type, id:id||'', occ:occ||''};
+  if(!id){ o.draft='wtc-draft:'+uid(''); jset(o.draft,{draft:clone(draft||null), opts:clone(opts||{}), at:Date.now()}); }
+  const name='wtc-edit-'+type+'-'+(id||o.draft.slice(10))+(occ?'-'+occ:'');
+  let w=null; try{ w=window.open(detailUrl(o), name); }catch(e){}
+  if(!w){   // pop-ups blocked: edit here instead
+    if(o.draft) safeDel(o.draft);
+    toast('Your browser blocked the new tab. Allow pop-ups for this site, or choose “popup” in ⚙ Settings → General → Edit windows.',{ms:9000});
+    FORCE_DIALOG=true;
+    try{ if(type==='event') openEventEditor(id,draft,occ); else if(type==='task') openTaskEditor(id,draft,opts||{}); else openProjectEditor(id,draft); }
+    finally{ FORCE_DIALOG=false; }
+    return;
+  }
+  try{ w.focus(); }catch(e){}
+}
+let _editOpened=false;
+function renderEditPage(el){
+  if(_editOpened) return;                       // the editor keeps its own state once open
+  const D=DETAIL, label={event:'event',task:'task',project:'project'}[D.type];
+  if(!label) return renderDetailMissing('item');
+  let draft=null, opts={};
+  if(!D.id){
+    const h=D.draft?jget(D.draft,null):null; if(D.draft) safeDel(D.draft);
+    if(!h){ el.innerHTML=`<div class="dt-card"><h1 class="dt-title">This new ${label} is no longer available</h1><p class="hint">It was not saved; the window was probably reloaded. Start it again from the calendar.</p><div class="dacts"><button data-x>Close tab</button></div></div>`; $('[data-x]',el).onclick=closeDetailTab; return; }
+    draft=h.draft; opts=h.opts||{};
+    if(D.type==='event' && draft) draft=newEvent(draft);
+    if(D.type==='task' && draft) draft=newTask(draft);
+  } else {
+    const it = D.type==='project' ? proj(D.id) : D.type==='task' ? task(D.id) : ev(D.id);
+    if(!it) return renderDetailMissing(label);
+  }
+  _editOpened=true; el.innerHTML='';
+  EDIT_PAGE_PENDING=true;
+  try{
+    if(D.type==='event') openEventEditor(D.id||null, draft, D.occ||undefined);
+    else if(D.type==='task') openTaskEditor(D.id||null, draft, opts);
+    else openProjectEditor(D.id||null, draft);
+  } finally { EDIT_PAGE_PENDING=false; }
+  const t=$('.dlg.page input[name=title],.dlg.page input[name=name]',el);
+  const nm=()=>(t&&t.value.trim())||('New '+label);
+  document.title=(D.id?'Edit: ':'')+nm()+' · Work & Travel';
+  if(t) t.addEventListener('input',()=>{ document.title=(D.id?'Edit: ':'')+nm()+' · Work & Travel'; });
+}
+/* Save/Cancel/Delete in the edit page: wait for nested dialogs and for the save to reach the server, then close the tab */
+async function closeEditPage(d){
+  if(d._closing) return;
+  const saved = changeSeq!==d._seq;
+  if(!saved && d._cancel && d._modified && !await confirmDlg({title:'Discard changes?', html:'Your changes in this window have not been saved.'},[['Discard','y','danger'],['Keep editing',null]])){ d._cancel=false; return; }
+  d._closing=true; d.style.display='none';
+  const el=$('#detail'); const msg=document.createElement('div'); msg.className='dt-card'; msg.id='closingMsg';
+  msg.innerHTML='<h1 class="dt-title">Closing…</h1><p class="hint" id="closingWhy">Saving your changes.</p><div class="dacts"><button data-cal>📅 Open the calendar</button></div>';
+  el.appendChild(msg); $('[data-cal]',msg).onclick=()=>{ location.href=location.pathname+location.search; };
+  await new Promise(r=>setTimeout(r,50));          // let the action that closed the page open its own confirmation first (e.g. Delete)
+  const t0=Date.now();
+  while(Date.now()-t0<20000){
+    if(!_dlgStack.some(x=>x!==d) && !dirty && !saving && !saveTimer && !conflict) break;
+    if(conflict || (netError && dirty)){ $('#closingWhy',msg).textContent='Not saved yet: see the message at the top. This tab stays open until it is saved.'; }
+    await new Promise(r=>setTimeout(r,150));
+  }
+  if(dirty || saving || conflict) return;        // keep the tab open; the banner explains what is wrong
+  if(changeSeq===d._seq && !d._cancel){           // e.g. Delete was cancelled: show the editor again
+    msg.remove(); d.style.display=''; d._closing=false; return; }
+  _dlgStack=_dlgStack.filter(x=>x!==d); d.remove();
+  const did=changeSeq!==d._seq;
+  $('#closingWhy',msg).textContent = did ? 'Saved. You can close this tab.' : 'You can close this tab.';
+  $('h1',msg).textContent = did ? 'Saved ✓' : 'Closed';
+  window.close();                                 // works for tabs the calendar opened
+}
+window.addEventListener('beforeunload',e=>{ const p=$('.dlg.page'); if(p && p._modified && !p._closing && changeSeq===p._seq){ e.preventDefault(); e.returnValue=''; } });

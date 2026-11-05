@@ -44,7 +44,13 @@ async def main():
         await m.locator('.ev[data-ok=event]', has_text='Tab meeting').click(); await m.wait_for_timeout(800)
         ok('clicking the same event again reuses its tab', len(c.pages)==n0, len(c.pages))
         # ---- edit in the tab → calendar updates
-        await t.bring_to_front(); await t.click('[data-a=edit]'); await t.fill('.dlg [name=title]','Tab meeting edited'); await t.click('.dlg [data-a=save]'); await saved(t)
+        await t.bring_to_front()
+        async with c.expect_page() as npe: await t.click('[data-a=edit]')
+        te=await npe.value; await te.wait_for_selector('.dlg.page [name=title]', timeout=10000)
+        await te.fill('.dlg.page [name=title]','Tab meeting edited'); await te.click('.dlg.page [data-a=save]')
+        for _ in range(80):
+            if te.is_closed(): break
+            await asyncio.sleep(0.1)
         await m.wait_for_timeout(2500)
         ok('edit in the details tab: calendar tab updates by itself', await m.locator('.ev[data-ok=event]', has_text='Tab meeting edited').count()==1 and await t.inner_text('.dt-title')=='Tab meeting edited')
         # ---- edit in the calendar → tab updates

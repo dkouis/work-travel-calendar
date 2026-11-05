@@ -70,6 +70,7 @@ function splitList(s){ return String(s||'').split(',').map(x=>x.trim()).filter(B
 
 /* ---------------- EVENT EDITOR ---------------- */
 function openEventEditor(id, draft, occKey){
+  if(editInTab()) return openEditTab('event', id, draft, occKey);
   const orig = id ? ev(id) : null;
   if(id && !orig) return;
   const e = clone(orig || draft || newEvent());
@@ -211,6 +212,7 @@ function openEventEditor(id, draft, occKey){
 
 /* ---------------- TASK EDITOR ---------------- */
 function openTaskEditor(id, draft, opts={}){
+  if(editInTab()) return openEditTab('task', id, draft, null, opts);
   const orig = id ? task(id) : null;
   if(id && !orig) return;
   const t = clone(orig || draft || newTask());
@@ -355,6 +357,7 @@ function openTaskEditor(id, draft, opts={}){
 
 /* ---------------- PROJECT EDITOR ---------------- */
 function openProjectEditor(id, draft){
+  if(editInTab()) return openEditTab('project', id, draft);
   const orig=id?proj(id):null; if(id&&!orig) return;
   const p=clone(orig||newProject(draft||{}));
   const isNew=!orig, ro=!editable;

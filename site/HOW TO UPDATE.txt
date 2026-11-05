@@ -127,3 +127,9 @@ DETAILS IN A NEW TAB (5 Nov 2026, version 2.5.0)
   calendar's address. To go back to the popup: ⚙ Settings → General →
   Open details → "In a popup on the calendar".
   Full list of changes: CHANGELOG.md in the GitHub repository.
+
+EDIT IN A NEW TAB (5 Nov 2026, version 2.6.0)
+  The edit window of events, tasks and projects opens as a full page in a new
+  browser tab. Save closes the tab once the change is saved on the server;
+  Cancel asks before discarding changes. To go back to the popup:
+  ⚙ Settings → General → Edit windows → "In a popup on the calendar".

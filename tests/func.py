@@ -35,6 +35,7 @@ async def main():
         page.on('pageerror',lambda e:errs.append('PAGEERR '+str(e)))
         page.on('console',lambda m: errs.append('CONSOLE '+m.text) if m.type=='error' else None)
         await login(page,'dkouis','secret123')
+        await page.evaluate("()=>{ prefs.openEditors='popup'; savePrefs(); }")   # editor internals tested here; edit tabs: tests/edit.py
         seed_days=server()['data']['days']
 
         # ---- migration ----

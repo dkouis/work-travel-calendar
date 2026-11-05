@@ -13,12 +13,15 @@ function refreshOpenPanels(){ for(const f of [..._panelRefreshers]) try{ f(); }c
 
 /* ---------- dialogs ---------- */
 let _dlgStack=[];
+let EDIT_PAGE_PENDING=false;   // set by an edit tab just before it opens its editor
 function openDialog(html, opts={}){
-  const d=document.createElement('div'); d.className='dlg'; d.setAttribute('role','dialog'); d.setAttribute('aria-modal','true');
+  const page=EDIT_PAGE_PENDING; EDIT_PAGE_PENDING=false;
+  const d=document.createElement('div'); d.className='dlg'+(page?' page':''); d.setAttribute('role',page?'region':'dialog'); if(!page) d.setAttribute('aria-modal','true');
   d.innerHTML=`<div class="box ${opts.size||''}">${html}</div>`;
-  document.body.appendChild(d); _dlgStack.push(d);
-  d.addEventListener('mousedown', e=>{ if(e.target===d && !opts.sticky) closeDialog(d); });
-  $$('[data-close]',d).forEach(b=>b.onclick=()=>closeDialog(d));
+  (page?$('#detail'):document.body).appendChild(d); _dlgStack.push(d);
+  if(page){ d._page=true; d._seq=changeSeq; d.addEventListener('input',()=>{ d._modified=true; }); d.addEventListener('change',()=>{ d._modified=true; }); }
+  else d.addEventListener('mousedown', e=>{ if(e.target===d && !opts.sticky) closeDialog(d); });
+  $$('[data-close]',d).forEach(b=>b.onclick=()=>{ d._cancel=true; closeDialog(d); });
   d._onclose = opts.onclose;
   if(opts.refresh){ d._refresh=opts.refresh; _panelRefreshers.add(opts.refresh); }
   setTimeout(()=>{ const f=$(opts.focus||'[autofocus],input:not([type=hidden]):not([disabled]),select,textarea,button.primary',d); f&&f.focus(); },0);
@@ -26,6 +29,7 @@ function openDialog(html, opts={}){
 }
 function closeDialog(d){
   d = d || _dlgStack[_dlgStack.length-1]; if(!d) return;
+  if(d._page){ closeEditPage(d); return; }
   _dlgStack=_dlgStack.filter(x=>x!==d); if(d._refresh) _panelRefreshers.delete(d._refresh);
   d.remove(); if(d._onclose) d._onclose();
 }
