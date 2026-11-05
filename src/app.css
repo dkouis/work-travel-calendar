@@ -330,7 +330,8 @@ button.danger:hover{border-color:var(--sick)}
   .topbar{gap:6px;padding:8px 10px}
   .topbar .nav h1{font-size:14px}
   #viewSeg button{padding:5px 8px;font-size:13px}
-  .vtools label,.vtools [data-zoom],.legend,.help{display:none}
+  .vtools label,.vtools [data-zoom],.help{display:none}
+  .legend-menu{position:fixed!important;left:8px!important;right:8px!important;top:auto!important;max-height:70vh}
 }
 
 /* flights in the time grid, half-day leave bands, red titles */
@@ -421,3 +422,18 @@ body.detail .topbar .brand{display:flex!important}
 .dlg.page .dacts{position:sticky;bottom:0;background:var(--paper);padding:12px 0 4px;border-top:1px solid var(--line);margin-top:18px;z-index:2}
 body.detail #detail:has(.dlg.page){max-width:none;margin:0;padding:0}
 @media (max-width:700px){ .dlg.page{padding:0 0 40px} .dlg.page .box{border-radius:0} .dlg.page .box .frm{grid-template-columns:1fr} }
+
+/* legend dropdown */
+.legend-dd{display:inline-block}
+.legend-dd>summary{cursor:pointer;color:var(--muted);list-style:none;user-select:none}
+.legend-dd>summary::-webkit-details-marker{display:none}
+.legend-dd[open]>summary{color:var(--ink)}
+.legend-menu{display:block;padding:8px 12px 10px;min-width:260px;max-height:72vh;overflow:auto;font-size:12.5px;z-index:46}
+.lg-h{font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+.lg-h:first-child{margin-top:2px}
+.lg-row{display:flex;align-items:center;gap:8px;padding:2px 0}
+.lg-ico{width:26px;display:inline-flex;justify-content:center;flex:none}
+.lg-ico .sw{width:14px;height:14px;border-radius:4px}
+.lg-ico .loc{padding:0 4px;font-size:11px}
+.vtools details.dropdown>summary{list-style:none}
+.vtools details.dropdown>summary::-webkit-details-marker{display:none}

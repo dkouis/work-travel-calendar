@@ -133,3 +133,6 @@ EDIT IN A NEW TAB (5 Nov 2026, version 2.6.0)
   browser tab. Save closes the tab once the change is saved on the server;
   Cancel asks before discarding changes. To go back to the popup:
   ⚙ Settings → General → Edit windows → "In a popup on the calendar".
+
+LEGEND (5 Nov 2026, version 2.7.0)
+  The legend is now the "ℹ Legend ▾" button in the toolbar above the calendar.

@@ -581,7 +581,8 @@ button.danger:hover{border-color:var(--sick)}
   .topbar{gap:6px;padding:8px 10px}
   .topbar .nav h1{font-size:14px}
   #viewSeg button{padding:5px 8px;font-size:13px}
-  .vtools label,.vtools [data-zoom],.legend,.help{display:none}
+  .vtools label,.vtools [data-zoom],.help{display:none}
+  .legend-menu{position:fixed!important;left:8px!important;right:8px!important;top:auto!important;max-height:70vh}
 }
 
 /* flights in the time grid, half-day leave bands, red titles */
@@ -672,6 +673,21 @@ body.detail .topbar .brand{display:flex!important}
 .dlg.page .dacts{position:sticky;bottom:0;background:var(--paper);padding:12px 0 4px;border-top:1px solid var(--line);margin-top:18px;z-index:2}
 body.detail #detail:has(.dlg.page){max-width:none;margin:0;padding:0}
 @media (max-width:700px){ .dlg.page{padding:0 0 40px} .dlg.page .box{border-radius:0} .dlg.page .box .frm{grid-template-columns:1fr} }
+
+/* legend dropdown */
+.legend-dd{display:inline-block}
+.legend-dd>summary{cursor:pointer;color:var(--muted);list-style:none;user-select:none}
+.legend-dd>summary::-webkit-details-marker{display:none}
+.legend-dd[open]>summary{color:var(--ink)}
+.legend-menu{display:block;padding:8px 12px 10px;min-width:260px;max-height:72vh;overflow:auto;font-size:12.5px;z-index:46}
+.lg-h{font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+.lg-h:first-child{margin-top:2px}
+.lg-row{display:flex;align-items:center;gap:8px;padding:2px 0}
+.lg-ico{width:26px;display:inline-flex;justify-content:center;flex:none}
+.lg-ico .sw{width:14px;height:14px;border-radius:4px}
+.lg-ico .loc{padding:0 4px;font-size:11px}
+.vtools details.dropdown>summary{list-style:none}
+.vtools details.dropdown>summary::-webkit-details-marker{display:none}
 </style>
 </head>
 <body class="locked">
@@ -866,7 +882,7 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 const API = 'api.php';
 const POLL_MS = 60000;
 const SCHEMA = 2;
-const APP_VERSION = '2.6.0';   // see CHANGELOG.md
+const APP_VERSION = '2.7.0';   // see CHANGELOG.md
 const CATEGORIES = {meeting:'👥 Meeting', appointment:'📌 Appointment', deadline:'⏰ Deadline', travel:'🧳 Travel', social:'🎉 Social', other:'• Other'};
 const CAT_ICON = {meeting:'👥', appointment:'📌', deadline:'⏰', travel:'🧳', social:'🎉', other:''};
 const TASK_STATUS = {todo:'To do', 'in-progress':'In progress', waiting:'Waiting', done:'Done', cancelled:'Cancelled'};
@@ -2083,7 +2099,7 @@ function render(){
   else if(view==='agenda') html=renderAgenda();
   else if(view==='board') html=renderBoard();
   else html=renderMonth();
-  $('#main').innerHTML = toolsHTML() + legendHTML() + html + helpLine();
+  $('#main').innerHTML = toolsHTML() + html + helpLine();
   bindTools(); bindMain();
   if(view==='day'||view==='3day'||(view==='week'&&!weekCompact)) bindGrid();
   renderSelbar();
@@ -2104,17 +2120,39 @@ function toolsHTML(){
     <label>Colour by <select data-colorby>${['project','calendar','priority'].map(c=>`<option ${prefs.colorBy===c?'selected':''}>${c}</option>`).join('')}</select></label>
     <label>Density <select data-density>${['comfortable','compact'].map(c=>`<option ${prefs.density===c?'selected':''}>${c}</option>`).join('')}</select></label>
     <details class="dropdown"><summary style="cursor:pointer;color:var(--muted)">Show ▾</summary><div class="menu open" style="display:block;padding:10px;min-width:210px">
-      ${tog('showStatus','Work status')}<br>${tog('showFlights','Flights')}<br>${tog('showBlocks','Task blocks')}<br>${tog('showDue','Due dates')}<br>${tog('showDone','Completed tasks')}<br>${tog('showCancelled','Cancelled events')}<br>
-      <label><input type="checkbox" data-legend ${prefs.showLegend?'checked':''}> Legend</label></div></details>
+      ${tog('showStatus','Work status')}<br>${tog('showFlights','Flights')}<br>${tog('showBlocks','Task blocks')}<br>${tog('showDue','Due dates')}<br>${tog('showDone','Completed tasks')}<br>${tog('showCancelled','Cancelled events')}</div></details>
+    ${legendHTML()}
     ${filt.projects.length||filt.tag||filt.hiddenCals.length?`<span class="tag k">Filtered${filt.projects.length?': '+filt.projects.map(p=>p.startsWith('inbox:')?'Inbox':(proj(p)||{}).name).join(', '):''}${filt.tag?' #'+esc(filt.tag):''} <button class="ghost" data-clearf style="padding:0 3px">✕</button></span>`:''}
   </div>`;
 }
+/* Legend: a dropdown in the toolbar (was a row above the calendar) */
 function legendHTML(){
-  if(!prefs.showLegend || view==='board') return '';
-  return '<div class="legend">'+(filt.showStatus?Object.entries(STATUSES).map(([k,s])=>`<span><i class="sw" style="background:var(--${k})"></i>${s.label}</span>`).join(''):'')
-    + '<span>📍 location (dashed = from last flight)</span><span>✈ flight</span>'
-    + '<span><i class="sw" style="background:repeating-linear-gradient(135deg,var(--accent) 0 3px,transparent 3px 6px);border:1px solid var(--line2)"></i>task block</span><span>⚑ task due</span><span>⚠ conflict</span>'
-    + (filt.showStatus?'<span><i class="sw" style="background:var(--fill-ath-tele);border:1px solid var(--line2)"></i>Athens + Telework</span><span><i class="sw" style="background:var(--fill-ath-abroad);border:1px solid var(--line2)"></i>Athens + Telework abroad</span>':'')+'</div>';
+  if(view==='board') return '';
+  const sw=(bg,extra='')=>`<i class="sw" style="background:${bg};${extra}"></i>`;
+  const row=(icon,label,hint)=>`<div class="lg-row"><span class="lg-ico">${icon}</span><span>${label}${hint?`<span class="hint"> · ${hint}</span>`:''}</span></div>`;
+  return `<details class="dropdown legend-dd"><summary title="What the colours and symbols mean">ℹ Legend ▾</summary>
+    <div class="menu open legend-menu" role="note" aria-label="Legend">
+      <div class="lg-h">Work status</div>
+      ${Object.entries(STATUSES).map(([k,s])=>row(sw(`var(--${k})`),esc(s.label))).join('')}
+      <div class="lg-h">Day colours</div>
+      ${row(sw('var(--fill-ath-tele)','border:1px solid var(--line2)'),'Athens + Telework')}
+      ${row(sw('var(--fill-ath-abroad)','border:1px solid var(--line2)'),'Athens + Telework abroad')}
+      ${row(sw('repeating-linear-gradient(-45deg,color-mix(in srgb,var(--leave) 30%,transparent) 0 3px,transparent 3px 6px)','border:1px solid var(--leave)'),'Leave / sick / holiday','shaded half of the day in the time grid')}
+      <div class="lg-h">Location &amp; travel</div>
+      ${row('<span class="loc">📍</span>','Location')}
+      ${row('<span class="loc auto">📍</span>','Location from the last flight','dashed')}
+      ${row('<span class="fl" style="padding:0 6px">✈</span>','Flight','click for details')}
+      <div class="lg-h">Events &amp; tasks</div>
+      ${row(sw('color-mix(in srgb,var(--accent) 25%,var(--paper))','border-left:3px solid var(--accent)'),'Event','colour of its project or calendar')}
+      ${row(sw('repeating-linear-gradient(135deg,var(--accent) 0 3px,transparent 3px 6px)','border:1px solid var(--line2)'),'Task block','time planned for a task')}
+      ${row('⚑','Task due')}
+      ${row('<b style="color:var(--sick)">⚑</b>','Task overdue')}
+      ${row('⚠','Conflict','overlap, during a flight, or during time off')}
+      ${row('🔁','Repeating')}
+      ${row('🔔','Has reminders')}
+      ${row('🔒','Private (Personal)')}
+      ${row(sw('repeating-linear-gradient(45deg,var(--busy) 0 3px,transparent 3px 6px)'),'Busy','Personal time, when Personal items are locked')}
+    </div></details>`;
 }
 function bindTools(){
   const m=$('#main');
@@ -2124,7 +2162,6 @@ function bindTools(){
   $('[data-colorby]',m).onchange=e=>{ prefs.colorBy=e.target.value; savePrefs(); renderAll(); };
   $('[data-density]',m).onchange=e=>{ prefs.density=e.target.value; savePrefs(); render(); };
   $$('[data-ft]',m).forEach(c=>c.onchange=()=>{ filt[c.dataset.ft]=c.checked; saveFilter(); renderAll(); });
-  const lg=$('[data-legend]',m); if(lg) lg.onchange=()=>{ prefs.showLegend=lg.checked; savePrefs(); render(); };
   const cf=$('[data-clearf]',m); if(cf) cf.onclick=()=>{ filt.projects=[]; filt.tag=''; filt.hiddenCals=[]; saveFilter(); renderAll(); };
 }
 

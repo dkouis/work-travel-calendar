@@ -469,6 +469,25 @@ async def main():
         ok('event notes have the same editor', await page.locator('.dlg .mde-bar').count()==1)
         await page.screenshot(path=SH+'md-editor.png'); await page.keyboard.press('Escape')
 
+
+        # ---- v2.7: legend in a dropdown ----
+        await ev(page,"()=>{ closeDialog(); closeDialog(); closeDrawer(); closePopover(); }")
+        res={}
+        for v in ['day','3day','week','month','agenda']:
+            await ev(page,f"setView('{v}')"); await page.wait_for_timeout(150)
+            res[v]=(await page.locator('#main > .legend').count(), await page.locator('#main .vtools .legend-dd').count())
+        ok('legend row removed; Legend dropdown in the toolbar of every calendar view', all(r==(0,1) for r in res.values()), res)
+        await ev(page,"setView('week')"); await page.wait_for_timeout(150)
+        ok('legend is closed until clicked', not await page.locator('.legend-menu').is_visible())
+        await page.click('.legend-dd > summary'); await page.wait_for_timeout(150)
+        txt=await page.inner_text('.legend-menu')
+        need=['Workplace','Telework','Telework abroad','Leave','Sick','Public holiday','Location from the last flight','Flight','Task block','Task due','Conflict','Athens + Telework','Athens + Telework abroad']
+        ok('legend dropdown lists all items', await page.locator('.legend-menu').is_visible() and all(n in txt for n in need), [n for n in need if n not in txt])
+        await page.mouse.click(700,600); await page.wait_for_timeout(150)
+        ok('legend closes when clicking elsewhere', not await page.locator('.legend-menu').is_visible())
+        ok('board view has no legend', (await ev(page,"()=>{ setView('board'); return document.querySelectorAll('.legend-dd').length; }"))==0)
+        await ev(page,"setView('week')")
+
         # ---- performance with 5,000 items ----
         perf=await ev(page,"""()=>{ const base=fromKey('2026-11-02'); for(let i=0;i<5000;i++){ const d=addDays(base,(i%120)-60), k=key(d), h=8+(i%10); if(i%2) data.events.push(touch(newEvent({title:'Load '+i, start:k+'T'+String(h).padStart(2,'0')+':00', end:k+'T'+String(h).padStart(2,'0')+':45', tz:'Europe/Athens'}))); else data.tasks.push(touch(newTask({title:'Load task '+i, dueDate:k, blocks:[{id:uid('b'),start:k+'T'+String(h).padStart(2,'0')+':00',end:k+'T'+String(h).padStart(2,'0')+':30',tz:'Europe/Athens',done:false}]}))); }
             invalidateCaches(); changeSeq++; cursor=fromKey('2026-11-02'); view='week'; weekCompact=false;

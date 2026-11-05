@@ -107,7 +107,7 @@ function render(){
   else if(view==='agenda') html=renderAgenda();
   else if(view==='board') html=renderBoard();
   else html=renderMonth();
-  $('#main').innerHTML = toolsHTML() + legendHTML() + html + helpLine();
+  $('#main').innerHTML = toolsHTML() + html + helpLine();
   bindTools(); bindMain();
   if(view==='day'||view==='3day'||(view==='week'&&!weekCompact)) bindGrid();
   renderSelbar();
@@ -128,17 +128,39 @@ function toolsHTML(){
     <label>Colour by <select data-colorby>${['project','calendar','priority'].map(c=>`<option ${prefs.colorBy===c?'selected':''}>${c}</option>`).join('')}</select></label>
     <label>Density <select data-density>${['comfortable','compact'].map(c=>`<option ${prefs.density===c?'selected':''}>${c}</option>`).join('')}</select></label>
     <details class="dropdown"><summary style="cursor:pointer;color:var(--muted)">Show ▾</summary><div class="menu open" style="display:block;padding:10px;min-width:210px">
-      ${tog('showStatus','Work status')}<br>${tog('showFlights','Flights')}<br>${tog('showBlocks','Task blocks')}<br>${tog('showDue','Due dates')}<br>${tog('showDone','Completed tasks')}<br>${tog('showCancelled','Cancelled events')}<br>
-      <label><input type="checkbox" data-legend ${prefs.showLegend?'checked':''}> Legend</label></div></details>
+      ${tog('showStatus','Work status')}<br>${tog('showFlights','Flights')}<br>${tog('showBlocks','Task blocks')}<br>${tog('showDue','Due dates')}<br>${tog('showDone','Completed tasks')}<br>${tog('showCancelled','Cancelled events')}</div></details>
+    ${legendHTML()}
     ${filt.projects.length||filt.tag||filt.hiddenCals.length?`<span class="tag k">Filtered${filt.projects.length?': '+filt.projects.map(p=>p.startsWith('inbox:')?'Inbox':(proj(p)||{}).name).join(', '):''}${filt.tag?' #'+esc(filt.tag):''} <button class="ghost" data-clearf style="padding:0 3px">✕</button></span>`:''}
   </div>`;
 }
+/* Legend: a dropdown in the toolbar (was a row above the calendar) */
 function legendHTML(){
-  if(!prefs.showLegend || view==='board') return '';
-  return '<div class="legend">'+(filt.showStatus?Object.entries(STATUSES).map(([k,s])=>`<span><i class="sw" style="background:var(--${k})"></i>${s.label}</span>`).join(''):'')
-    + '<span>📍 location (dashed = from last flight)</span><span>✈ flight</span>'
-    + '<span><i class="sw" style="background:repeating-linear-gradient(135deg,var(--accent) 0 3px,transparent 3px 6px);border:1px solid var(--line2)"></i>task block</span><span>⚑ task due</span><span>⚠ conflict</span>'
-    + (filt.showStatus?'<span><i class="sw" style="background:var(--fill-ath-tele);border:1px solid var(--line2)"></i>Athens + Telework</span><span><i class="sw" style="background:var(--fill-ath-abroad);border:1px solid var(--line2)"></i>Athens + Telework abroad</span>':'')+'</div>';
+  if(view==='board') return '';
+  const sw=(bg,extra='')=>`<i class="sw" style="background:${bg};${extra}"></i>`;
+  const row=(icon,label,hint)=>`<div class="lg-row"><span class="lg-ico">${icon}</span><span>${label}${hint?`<span class="hint"> · ${hint}</span>`:''}</span></div>`;
+  return `<details class="dropdown legend-dd"><summary title="What the colours and symbols mean">ℹ Legend ▾</summary>
+    <div class="menu open legend-menu" role="note" aria-label="Legend">
+      <div class="lg-h">Work status</div>
+      ${Object.entries(STATUSES).map(([k,s])=>row(sw(`var(--${k})`),esc(s.label))).join('')}
+      <div class="lg-h">Day colours</div>
+      ${row(sw('var(--fill-ath-tele)','border:1px solid var(--line2)'),'Athens + Telework')}
+      ${row(sw('var(--fill-ath-abroad)','border:1px solid var(--line2)'),'Athens + Telework abroad')}
+      ${row(sw('repeating-linear-gradient(-45deg,color-mix(in srgb,var(--leave) 30%,transparent) 0 3px,transparent 3px 6px)','border:1px solid var(--leave)'),'Leave / sick / holiday','shaded half of the day in the time grid')}
+      <div class="lg-h">Location &amp; travel</div>
+      ${row('<span class="loc">📍</span>','Location')}
+      ${row('<span class="loc auto">📍</span>','Location from the last flight','dashed')}
+      ${row('<span class="fl" style="padding:0 6px">✈</span>','Flight','click for details')}
+      <div class="lg-h">Events &amp; tasks</div>
+      ${row(sw('color-mix(in srgb,var(--accent) 25%,var(--paper))','border-left:3px solid var(--accent)'),'Event','colour of its project or calendar')}
+      ${row(sw('repeating-linear-gradient(135deg,var(--accent) 0 3px,transparent 3px 6px)','border:1px solid var(--line2)'),'Task block','time planned for a task')}
+      ${row('⚑','Task due')}
+      ${row('<b style="color:var(--sick)">⚑</b>','Task overdue')}
+      ${row('⚠','Conflict','overlap, during a flight, or during time off')}
+      ${row('🔁','Repeating')}
+      ${row('🔔','Has reminders')}
+      ${row('🔒','Private (Personal)')}
+      ${row(sw('repeating-linear-gradient(45deg,var(--busy) 0 3px,transparent 3px 6px)'),'Busy','Personal time, when Personal items are locked')}
+    </div></details>`;
 }
 function bindTools(){
   const m=$('#main');
@@ -148,7 +170,6 @@ function bindTools(){
   $('[data-colorby]',m).onchange=e=>{ prefs.colorBy=e.target.value; savePrefs(); renderAll(); };
   $('[data-density]',m).onchange=e=>{ prefs.density=e.target.value; savePrefs(); render(); };
   $$('[data-ft]',m).forEach(c=>c.onchange=()=>{ filt[c.dataset.ft]=c.checked; saveFilter(); renderAll(); });
-  const lg=$('[data-legend]',m); if(lg) lg.onchange=()=>{ prefs.showLegend=lg.checked; savePrefs(); render(); };
   const cf=$('[data-clearf]',m); if(cf) cf.onclick=()=>{ filt.projects=[]; filt.tag=''; filt.hiddenCals=[]; saveFilter(); renderAll(); };
 }
 

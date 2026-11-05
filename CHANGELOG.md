@@ -3,6 +3,17 @@
 All notable changes to the Work & Travel Calendar. Dates are Athens time.
 "Upload" says which server files changed; the `data` folder (calendar, accounts, passwords) is never replaced.
 
+## [2.7.0] – 2026-11-05 — Legend in a dropdown
+Upload: `index.php`
+
+### Changed
+- The **legend** is no longer a row above the calendar. It is a **ℹ Legend ▾** dropdown in the toolbar of the Day, 3 days, Week, Month and Agenda views, so the calendar starts higher on the screen.
+- The dropdown groups the items: Work status (Workplace, Telework, Telework abroad, Leave, Sick, Public holiday), Day colours (Athens + Telework, Athens + Telework abroad, half-day leave shading), Location & travel (location, location from the last flight, flight) and Events & tasks (event, task block, task due, task overdue, conflict, repeating, reminders, private, busy). It closes when you click elsewhere.
+- The legend is also available on phones (it was hidden there before).
+
+### Removed
+- The "Legend" tick box in the **Show ▾** menu (no longer needed).
+
 ## [2.6.0] – 2026-11-05 — Edit in a new tab
 Upload: `index.php`
 
@@ -111,5 +122,6 @@ Upload: `index.php` and the installable-app files
 - Work status, location, flights and comments per day; Week and Month views; Trips report.
 - 1 Nov 2026: moved from a single HTML file to the PHP version (`index.php` + `api.php`) with server accounts, automatic saving and version history.
 
+[2.7.0]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.6.0]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.5.0]: https://github.com/dkouis/work-travel-calendar/commits/main
