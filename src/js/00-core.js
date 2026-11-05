@@ -51,6 +51,7 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 const API = 'api.php';
 const POLL_MS = 60000;
 const SCHEMA = 2;
+const APP_VERSION = '2.5.0';   // see CHANGELOG.md
 const CATEGORIES = {meeting:'👥 Meeting', appointment:'📌 Appointment', deadline:'⏰ Deadline', travel:'🧳 Travel', social:'🎉 Social', other:'• Other'};
 const CAT_ICON = {meeting:'👥', appointment:'📌', deadline:'⏰', travel:'🧳', social:'🎉', other:''};
 const TASK_STATUS = {todo:'To do', 'in-progress':'In progress', waiting:'Waiting', done:'Done', cancelled:'Cancelled'};
@@ -207,7 +208,7 @@ const DEFAULT_PREFS = {
   hourPx:44, density:'comfortable', colorBy:'project', hideWeekends:false, showLegend:true, sidePanel:true, tasksPanel:true,
   desktop:false, sound:true, quietStart:'22:00', quietEnd:'07:30', digestTime:'08:30', digest:true,
   reviewDay:4, reviewTime:'16:00', review:true, eod:false, eodTime:'18:00', snooze:[5,10,30,60,'tomorrow'],
-  activeTz:'', offlineCopy:false, tpSort:'due', tpGroup:'none', savedFilters:[]
+  activeTz:'', openDetails:'tab', offlineCopy:false, tpSort:'due', tpGroup:'none', savedFilters:[]
 };
 const DEFAULT_FILTER = {hiddenCals:[], projects:[], showDone:true, showCancelled:true, showBlocks:true, showDue:true, showFlights:true, showStatus:true, tag:''};
 function prefKey(){ return 'wtc-prefs:'+(session?session.user.toLowerCase():'-'); }

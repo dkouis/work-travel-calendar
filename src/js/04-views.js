@@ -64,7 +64,7 @@ function flightDisp(k,f){ // display (active zone) times of a flight
 }
 function flightsHTML(e,k){
   if(!filt.showFlights) return '';
-  return (e.flights||[]).map(f=>`<div class="fl" title="${esc(f.from)} → ${esc(f.to)}${f.note?' · '+esc(f.note):''}">✈ ${esc(code(f.from))} → ${esc(code(f.to))} <span class="t">${esc(FLIGHT_TIMES[flightKind(f)])} ${esc(k?flightDisp(k,f):flightTimeLabel(f))}</span></div>`).join('');
+  return (e.flights||[]).map((f,fi)=>`<div class="fl" data-flk="${k||''}" data-fli="${fi}" role="button" tabindex="0" title="Click for details · "${esc(f.from)} → ${esc(f.to)}${f.note?' · '+esc(f.note):''}">✈ ${esc(code(f.from))} → ${esc(code(f.to))} <span class="t">${esc(FLIGHT_TIMES[flightKind(f)])} ${esc(k?flightDisp(k,f):flightTimeLabel(f))}</span></div>`).join('');
 }
 
 /* ---------- chips (all-day row, month cells, compact week) ---------- */
@@ -82,7 +82,7 @@ function dueChip(t, overdue){
 }
 function flightChips(k){
   if(!filt.showFlights) return '';
-  return (day(k).flights||[]).map(f=>`<div class="chipi flight" title="${esc(f.from)} → ${esc(f.to)} · ${esc(flightLabel(f))}${f.note?' · '+esc(f.note):''}">✈ ${esc(code(f.from))}→${esc(code(f.to))} <span class="t">${esc(flightDisp(k,f))}</span></div>`).join('');
+  return (day(k).flights||[]).map((f,fi)=>`<div class="chipi flight" data-flk="${k}" data-fli="${fi}" role="button" tabindex="0" title="Click for details · "${esc(f.from)} → ${esc(f.to)} · ${esc(flightLabel(f))}${f.note?' · '+esc(f.note):''}">✈ ${esc(code(f.from))}→${esc(code(f.to))} <span class="t">${esc(flightDisp(k,f))}</span></div>`).join('');
 }
 function dayItems(k){ // all items of a day for chips, in display order
   const d0=fromKey(k).getTime(), d1=addDays(fromKey(k),1).getTime();
@@ -267,7 +267,7 @@ function renderGrid(days){
     all+=`<div class="tg-allc ${wk?'we':''}" data-allk="${k}">${it.overdue.map(t=>dueChip(t,true)).join('')}${it.ad.map(o=>occChip(o,k)).join('')}${it.due.map(t=>dueChip(t,false)).join('')}</div>`;
     // timed items in this column
     const d0=fromKey(k).getTime(), d1=addDays(fromKey(k),1).getTime();
-    const fls=filt.showFlights?[keyAdd(k,-1),k,keyAdd(k,1)].flatMap(fk=>flightWindows(fk)).filter(w=>w.e>d0&&w.s<d1).map(w=>({kind:'flight', s:w.s, e:w.e, f:w.f, k:w.k, title:'✈ '+code(w.f.from)+' → '+code(w.f.to)})):[];
+    const fls=filt.showFlights?[keyAdd(k,-1),k,keyAdd(k,1)].flatMap(fk=>flightWindows(fk)).filter(w=>w.e>d0&&w.s<d1).map(w=>({kind:'flight', s:w.s, e:w.e, f:w.f, k:w.k, fi:w.i, title:'✈ '+code(w.f.from)+' → '+code(w.f.to)})):[];
     const items=[...it.tm,...fls].map(o=>Object.assign(Object.create(null),{o,_s:Math.max(o.s,d0),_e:Math.min(o.e,d1)})).filter(x=>x._e>x._s).sort((a,b)=>a._s-b._s||b._e-a._e);
     const lanes=layoutLanes(items);
     const workDay=S().workDays.includes(dow(d));
@@ -287,7 +287,7 @@ function renderGrid(days){
 }
 function evBlockHTML(o, top, h, left, w, conf){
   if(o.kind==='flight'){ const f=o.f;
-    return `<div class="ev flt" style="top:${top}px;height:${h}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)" data-flk="${o.k}" tabindex="0" role="button" aria-label="Flight ${esc(f.from)} to ${esc(f.to)}, ${esc(flightLabel(f))}" title="${esc(f.from)} → ${esc(f.to)} · ${esc(flightLabel(f))}${f.note?' · '+esc(f.note):''} — click to edit">
+    return `<div class="ev flt" data-fli="${o.fi}" style="top:${top}px;height:${h}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)" data-flk="${o.k}" tabindex="0" role="button" aria-label="Flight ${esc(f.from)} to ${esc(f.to)}, ${esc(flightLabel(f))}" title="${esc(f.from)} → ${esc(f.to)} · ${esc(flightLabel(f))}${f.note?' · '+esc(f.note):''} — click to edit">
       <div class="tm">${hm(o.s)}–${hm(o.e)==='00:00'?'24:00':hm(o.e)}${o.k!==key(new Date(o.s))||flightTz(f)!==ACTIVE_TZ?` · ${esc(minToHM(flightMins(f).a))} ${esc(tzShort(flightTz(f)))}`:''}${flightAlarmMin(f)!==null?' ⏰':''}</div><span class="ti">✈ ${esc(code(f.from))} → ${esc(code(f.to))}</span>${h>44&&f.note?`<div class="lo">${esc(f.note)}</div>`:''}</div>`; }
   if(o.kind==='busy') return `<div class="ev busy" style="top:${top}px;height:${h}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)" title="Busy (Personal items are locked)"><span class="ti">Busy</span></div>`;
   const it=o.item, c=itemColor(it), task=o.kind==='block';
@@ -310,7 +310,7 @@ function renderAgenda(){
   for(let i=0;i<agendaDays;i++){
     const d=addDays(start,i), k=key(d), e=day(k), it=dayItems(k);
     const rows=[];
-    for(const f of (filt.showFlights?(e.flights||[]):[])) rows.push(`<div class="agi" style="cursor:default"><span class="t">${esc(flightDisp(k,f))}</span><div class="b" style="--c:var(--accent)"><span class="ti">✈ ${esc(f.from)} → ${esc(f.to)}</span>${f.note?`<div class="s">${esc(f.note)}</div>`:''}</div></div>`);
+    for(const [fi,f] of (filt.showFlights?(e.flights||[]):[]).entries()) rows.push(`<div class="agi" data-flk="${k}" data-fli="${fi}" tabindex="0"><span class="t">${esc(flightDisp(k,f))}</span><div class="b" style="--c:var(--accent)"><span class="ti">✈ ${esc(f.from)} → ${esc(f.to)}</span>${f.note?`<div class="s">${esc(f.note)}</div>`:''}</div></div>`);
     for(const t of it.overdue) rows.push(agTaskRow(t,'Overdue'));
     for(const o of it.ad) rows.push(agOccRow(o,'All day'));
     for(const o of it.tm) rows.push(agOccRow(o,`${hm(o.s)}–${hm(o.e)}`));
@@ -383,6 +383,9 @@ function bindMain(){
     el.addEventListener('dragstart',e=>{ e.dataTransfer.setData('text/x-task', el.dataset.task); e.dataTransfer.setData('text/x-due', el.dataset.task); });
   });
   bindTaskRows(M);
+  $$('[data-flk]',M).forEach(el=>{ if(!el.dataset.flk) return;
+    const go=e=>{ e.stopPropagation(); openFlight(el.dataset.flk, +el.dataset.fli); };
+    el.addEventListener('click',go); el.addEventListener('keydown',e=>{ if(e.key==='Enter') go(e); }); });
   // drop targets: month cells, compact week columns, all-day cells
   $$('.cell[data-k],.wcol[data-k],[data-allk]',M).forEach(c=>{
     const k=c.dataset.k||c.dataset.allk;

@@ -349,8 +349,10 @@ function openSettings(tab){
       <label>All-day reminders at</label><input type="time" name="allDayRemTime" value="${s.allDayRemTime}" ${ro}>
       <div class="sec">This device</div>
       <label>Hour height</label><div class="row"><input type="range" min="24" max="96" step="4" data-p="hourPx" value="${prefs.hourPx}"> <span class="hint">${prefs.hourPx}px</span></div>
+      <label>Open details</label><div class="row"><select data-p="openDetails"><option value="tab" ${(prefs.openDetails||'tab')!=='popup'?'selected':''}>In a new browser tab</option><option value="popup" ${prefs.openDetails==='popup'?'selected':''}>In a popup on the calendar</option></select><span class="hint">when you click an event, a project or a flight</span></div>
       <label>Offline copy</label><label class="hint"><input type="checkbox" data-p="offlineCopy" ${prefs.offlineCopy?'checked':''}> Keep a copy on this device so the calendar opens without internet (read-only). Don’t use on shared computers.</label>
-      <label>Install</label><div class="hint">${installHint()}</div></form>`;
+      <label>Install</label><div class="hint">${installHint()}</div>
+      <label>Version</label><div class="hint">Work &amp; Travel Calendar ${APP_VERSION}</div></form>`;
     if(setTab==='notify') body=`<form class="frm" data-sf>
       <div class="sec" style="border:0;padding-top:0">Defaults for new items</div>
       <label>Events</label>${remPreview(s.defaultEventRem)}<label>Task due</label>${remPreview(s.defaultDueRem)}<label>Task blocks</label>${remPreview(s.defaultBlockRem)}

@@ -3,10 +3,13 @@
 A personal planner for work status, location and travel, extended with projects, events, tasks, reminders and reports.
 It runs on any PHP 7.4+ web host: `index.php` is the app, `api.php` handles sign-in and stores the calendar in `site/data/`.
 
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
+
 ## Features
 - Daily work status (morning 08:30–13:00 / evening 13:00–17:30), location and flights (Morning 08–12, Noon 16–20, Night 20–24, with alarms)
 - Work and Personal calendars, projects, events, tasks scheduled as time blocks
 - Day, 3-day, Week, Month, Agenda and Board views; drag and drop; option to hide weekends
+- Details of events, projects and flights open in their own browser tab (or a popup, per setting)
 - Active time zone (🌍 menu): items entered and shown in local time while travelling
 - Reminders, popups, desktop notifications, daily agenda and weekly review
 - Reports: daily, end of day, weekly, project, time allocation, trips (print, CSV, .ics)
@@ -49,14 +52,17 @@ FOLDERS
                  privacy, settings, accounts, history
               12 quick add (English and Greek)
               13 search, shortcuts, top bar, time-zone menu
+              14 details of events, projects and flights in their own tab
   build.py  Joins src/ into site/index.php (needs Python 3 and Node.js for
             the syntax check):   python3 build.py
   tests/    Browser tests (Python 3 + Playwright + PHP):
               1. copy site/ to a test folder and run: php -S 127.0.0.1:8099 -t <folder>
-              2. python3 tests/seed.py <folder>      (creates a sample old-format calendar)
+              2. python3 tests/seed.py <folder>      (creates a sample old-format calendar;
+                 run it again before each test suite: func.py adds 5,000 items for its speed test)
               3. create accounts dkouis / secret123 and viewer / viewer123 on first open
               4. WTC_SRV=<folder> python3 tests/func.py        (91 checks)
               5. WTC_SRV=<folder> python3 tests/passwords.py   (19 checks: reset file, forced change, change password)
+              6. WTC_SRV=<folder> python3 tests/detail.py      (20 checks: details in a new tab)
 
 TO CHANGE THE APP
   Edit files in src/, run python3 build.py, then upload site/index.php.

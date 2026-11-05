@@ -291,6 +291,7 @@ async def main():
         ok('default flight hours: morning 08–12, noon 16–20, night 20–24', dflt=='morning 08:00-12:00,noon 16:00-20:00,night 20:00-00:00', dflt)
         al=await ev(page,"Object.keys(FLIGHT_ALARM).map(k=>k+' '+minToHM(FLIGHT_ALARM[k])).join(',')")
         ok('default flight alarms: 06:00, 14:00, 17:30', al=='morning 06:00,noon 14:00,night 17:30', al)
+        await ev(page,"()=>{ prefs.openDetails='popup'; savePrefs(); }")   # the day panel path (new-tab path: tests/detail.py)
         await fl.click(); await page.wait_for_timeout(300)
         await page.fill('#drawer [data-fx=dep]','13:40'); await page.dispatch_event('#drawer [data-fx=dep]','change'); await page.wait_for_timeout(200)
         await page.fill('#drawer [data-fx=arr]','16:05'); await page.dispatch_event('#drawer [data-fx=arr]','change'); await saved(page)
@@ -298,6 +299,7 @@ async def main():
         ok('flight times editable and saved', f.get('dep')=='13:40' and f.get('arr')=='16:05', f)
         ok('grid shows the edited flight time', '13:40–16:05' in await page.locator('.tg-col[data-col="2026-11-09"] .ev.flt').inner_text())
         await page.click('#drawer [data-freset]'); await saved(page)
+        await ev(page,"()=>{ prefs.openDetails='tab'; savePrefs(); }")
         f=server()['data']['days']['2026-11-09']['flights'][0]
         ok('reset flight to default hours', 'dep' not in f and 'arr' not in f, f)
         await page.keyboard.press('Escape')

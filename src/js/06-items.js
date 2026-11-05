@@ -123,6 +123,7 @@ function convertItem(it){
 /* ---------- popover for a calendar entry ---------- */
 function openOccPopover(id, oc, kind, anchorEl){
   closePopover();
+  if(kind==='event' && useTabs()) return openDetailTab({t:'event', id, occ:oc});
   const it=findItem(id); if(!it) return;
   const o=findOcc(id,oc,kind); if(!o) return;
   selItem={kind,id,occ:oc};

@@ -62,7 +62,7 @@ function bindGrid(){
     });
   });
   // flights: click opens the day to edit times
-  $$('.ev.flt',body).forEach(el=>{ el.onclick=()=>openDrawer(el.dataset.flk); el.onkeydown=e=>{ if(e.key==='Enter') openDrawer(el.dataset.flk); }; el.addEventListener('pointerdown',e=>e.stopPropagation()); });
+  $$('.ev.flt',body).forEach(el=>{ el.onclick=()=>openFlight(el.dataset.flk,+el.dataset.fli); el.onkeydown=e=>{ if(e.key==='Enter') openFlight(el.dataset.flk,+el.dataset.fli); }; el.addEventListener('pointerdown',e=>e.stopPropagation()); });
   // items: click, move, resize
   $$('.ev[data-occ]',body).forEach(el=>{
     el.addEventListener('keydown',e=>{

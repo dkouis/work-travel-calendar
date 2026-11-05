@@ -387,3 +387,29 @@ button.danger:hover{border-color:var(--sick)}
 .md a{color:var(--accent)}
 .pop .md{font-size:12.5px}
 @media (max-width:700px){ .frm .mde{grid-column:1} .mde-bar button[data-md]{min-width:34px;height:34px} }
+
+/* details opened in their own browser tab */
+#detail{display:none}
+body.detail #detail{display:block;max-width:980px;margin:18px auto 60px;padding:0 16px}
+body.detail #detail.box{background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px 18px 18px}
+body.detail .layout,body.detail #selbar,body.detail #drawer,body.detail #scrim,
+body.detail .topbar .nav,body.detail #qaWrap,body.detail #searchBtn,body.detail #viewSeg,body.detail #newBtn,body.detail #repBtn,
+body.detail #sideBtn,body.detail #tasksBtn,body.detail #bellBtn,body.detail #menuBtn,body.detail .topbar .dropdown:not(#tzWrap){display:none!important}
+body.detail .topbar{justify-content:flex-start}
+body.detail .topbar .brand{display:flex!important}
+.dt-card{background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:20px 24px 16px}
+.dt-head{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.dt-title{font-size:26px;line-height:1.2;margin:10px 0 14px}
+.dt-sub{font-size:13px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;border-top:1px solid var(--line);padding-top:14px}
+.dt-grid{display:grid;grid-template-columns:130px minmax(0,1fr);gap:10px 16px;margin:0}
+.dt-grid dt{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.3px;padding-top:2px}
+.dt-grid dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.dt-grid a{color:var(--accent)}
+.dt-notes{font-size:14.5px}
+.dt-acts{border-top:1px solid var(--line);padding-top:14px}
+.dt-foot{margin-top:10px}
+[data-flk][role=button],.agi[data-flk]{cursor:pointer}
+@media (max-width:700px){ .dt-grid{grid-template-columns:1fr;gap:2px} .dt-grid dd{margin-bottom:8px} .dt-card{padding:16px} .dt-title{font-size:22px} body.detail #detail{margin-top:10px;padding:0 8px} }
+@media print{ body.detail .topbar,body.detail .dt-acts{display:none!important} }
+.dt-card .warnbox{margin-top:12px}
+.chip.loc-on .hint{color:inherit;opacity:.85}

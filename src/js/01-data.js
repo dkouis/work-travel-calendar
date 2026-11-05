@@ -99,10 +99,10 @@ function dayOff(k){ return offIntervals(k).length===2; }               // whole 
 function offOverlap(k,s,e){ return offIntervals(k).filter(x=>s<x.e && x.s<e); }
 function offAt(ms){ return offIntervals(key(new Date(ms))).find(x=>ms>=x.s && ms<x.e) || null; }
 function flightWindows(k){
-  return (day(k).flights||[]).map(f=>{
+  return (day(k).flights||[]).map((f,i)=>{
     const {a,b}=flightMins(f), tz=flightTz(f);
     const s=zonedToMs(k+'T'+minToHM(a),tz), e=b>=1440?zonedToMs(keyAdd(k,1)+'T00:00',tz):zonedToMs(k+'T'+minToHM(b),tz);
-    return {s, e, f, k, tz};
+    return {s, e, f, k, tz, i};
   });
 }
 

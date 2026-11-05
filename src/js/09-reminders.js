@@ -6,10 +6,15 @@
    ============================================================ */
 const TAB_ID = uid('tab');
 const remK = s => `wtc-${s}:${session?session.user.toLowerCase():'-'}`;
-let _bc=null; try{ _bc=new BroadcastChannel('wtc'); _bc.onmessage=e=>{ if(e.data==='notif') renderBell(); if(e.data==='dismiss') syncToasts(); }; }catch(e){}
+let _bc=null; try{ _bc=new BroadcastChannel('wtc'); _bc.onmessage=e=>{ const m=e.data;
+  if(m==='notif') renderBell(); if(m==='dismiss') syncToasts();
+  if(m && m.type==='saved' && session) reloadData(false);                 // another tab saved: pick it up now
+  if(m && m.type==='goto' && !DETAIL && session) gotoDay(m.k);             // a details tab asked to show a day
+}; }catch(e){}
 function isLeader(){
   const l=jget('wtc-leader',null), now=Date.now();
-  if(!l || l.id===TAB_ID || now-l.ts>25000){ jset('wtc-leader',{id:TAB_ID,ts:now}); return jget('wtc-leader',{}).id===TAB_ID; }
+  // details tabs only take over if no calendar tab is running
+  if(!l || l.id===TAB_ID || now-l.ts>(DETAIL?70000:25000)){ jset('wtc-leader',{id:TAB_ID,ts:now}); return jget('wtc-leader',{}).id===TAB_ID; }
   return false;
 }
 addEventListener('beforeunload',()=>{ const l=jget('wtc-leader',null); if(l && l.id===TAB_ID) safeDel('wtc-leader'); });
@@ -96,7 +101,7 @@ function openNotifTarget(n){
   if(!n.itemId) return;
   if(String(n.itemId).startsWith('day:')){ const k=n.itemId.slice(4); cursor=fromKey(k); render(); return openDrawer(k); }
   const it=findItem(n.itemId);
-  if(it && it.type==='event') return openEventEditor(it.id,null,n.occ);
+  if(it && it.type==='event') return openEvent(it.id,n.occ);
   if(it && it.type==='task') return openTaskEditor(it.id);
   if(proj(n.itemId)) return openProjectPage(n.itemId);
 }
@@ -205,7 +210,7 @@ function showAway(list){
 }
 /* daily agenda (first open after the digest time), weekly review and end-of-day prompts */
 function dailyPrompts(){
-  if(!session || !data || !isLeader()) return;
+  if(!session || !data || DETAIL || !isLeader()) return;
   const n=new Date(NOW()), m=n.getHours()*60+n.getMinutes(), tk=todayKey();
   if(prefs.digest && m>=(hmToMin(prefs.digestTime)??510) && safeGet(remK('digest'))!==tk && !_dlgStack.length){
     safeSet(remK('digest'),tk); openReports('daily',{date:tk, digest:true});

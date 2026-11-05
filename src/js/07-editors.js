@@ -418,9 +418,13 @@ function projStats(p){
   return {ts, es, done, open, overdue:ts.filter(isOverdue).length, est, planned, spent, progress};
 }
 let ppTab='tasks', ppView='list';
-function openProjectPage(id){
+function openProjectPage(id){ if(useTabs()) return openDetailTab({t:'project', id}); showProjectPage(id, null); }
+/* page: element to draw into (details tab), or null to show it in a dialog */
+function showProjectPage(id, page){
+  const box=()=>page || dd.querySelector('.box'), close=()=>page ? closeDetailTab() : closeDialog(dd);
   const draw=()=>{
-    const p=proj(id); if(!p){ closeDialog(dd); return; }
+    const p=proj(id); if(!p){ if(page) return renderDetailMissing('project'); closeDialog(dd); return; }
+    if(page) document.title=(p.icon||'')+' '+p.name+' · Work & Travel';
     const st=projStats(p), c=cal(p.calendarId);
     const budget=p.budgetHours?`<div style="min-width:220px"><div class="hint">Hours: ${fmtH(st.planned)} planned · ${fmtH(st.spent)} spent · budget ${p.budgetHours} h</div><div class="progress ${st.planned/60>p.budgetHours?'over':''}"><i style="width:${Math.min(100,st.spent/60/p.budgetHours*100)}%"></i></div></div>`:'';
     let body='';
@@ -454,13 +458,13 @@ function openProjectPage(id){
       ${barChart([{label:'Estimated',v:st.est/60,c:'var(--muted)'},{label:'Planned',v:st.planned/60,c:p.color},{label:'Spent',v:st.spent/60,c:'var(--tele)'},...(p.budgetHours?[{label:'Budget',v:p.budgetHours,c:'var(--leave)'}]:[])],'h')}
       <div class="rsec">Upcoming deadlines</div>${st.ts.filter(t=>isOpen(t)&&t.dueDate).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).slice(0,8).map(t=>taskRowHTML(t)).join('')||'<div class="hint">None.</div>'}`;
     }
-    dd.querySelector('.box').innerHTML=`<div class="dhd"><span class="dotc" style="background:${esc(p.color)};width:16px;height:16px"></span><h2>${esc(p.icon||'')} ${esc(p.name)}</h2>
+    box().innerHTML=`<div class="dhd"><span class="dotc" style="background:${esc(p.color)};width:16px;height:16px"></span><h2>${esc(p.icon||'')} ${esc(p.name)}</h2>
       <span class="tag">${esc(c.name)}</span><span class="tag">${PROJ_STATUS[p.status]}</span>${editable?'<button data-pedit>✎ Edit</button>':''}<button data-prep>📊 Report</button><button class="ghost" data-close>✕</button></div>
       <div class="pp-head">${p.dueDate?`<span class="hint">Due ${esc(fmtShort(fromKey(p.dueDate)))}</span>`:''}<div style="flex:1;min-width:180px"><div class="hint">${st.done} of ${st.done+st.open} tasks done</div><div class="progress"><i style="width:${Math.round(st.progress*100)}%"></i></div></div>${budget}</div>
       ${p.description?`<p class="hint">${esc(p.description)}</p>`:''}
       <div class="tabs">${[['tasks','Tasks'],['timeline','Timeline'],['stats','Stats']].map(([k,l])=>`<button data-ptab="${k}" class="${ppTab===k?'on':''}">${l}</button>`).join('')}</div>${body}`;
-    const B=dd.querySelector('.box');
-    $$('[data-close]',B).forEach(b=>b.onclick=()=>closeDialog(dd));
+    const B=box();
+    $$('[data-close]',B).forEach(b=>b.onclick=close);
     $$('[data-ptab]',B).forEach(b=>b.onclick=()=>{ ppTab=b.dataset.ptab; draw(); });
     $$('[data-pv]',B).forEach(b=>b.onclick=()=>{ ppView=b.dataset.pv; draw(); });
     const pe=$('[data-pedit]',B); if(pe) pe.onclick=()=>openProjectEditor(id);
@@ -471,6 +475,7 @@ function openProjectPage(id){
     $$('.bcol',B).forEach(c=>{ c.addEventListener('dragover',e=>{ if(editable){ e.preventDefault(); c.classList.add('dragover'); } }); c.addEventListener('dragleave',()=>c.classList.remove('dragover'));
       c.addEventListener('drop',e=>{ c.classList.remove('dragover'); e.preventDefault(); const t=task(e.dataTransfer.getData('text/x-task')); if(t) setTaskStatus(t,c.dataset.status); }); });
   };
-  const dd=openDialog('',{size:'wide', refresh:()=>draw()});
+  const dd=page ? null : openDialog('',{size:'wide', refresh:()=>draw()});
   draw();
+  return draw;
 }

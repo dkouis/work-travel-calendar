@@ -638,6 +638,32 @@ button.danger:hover{border-color:var(--sick)}
 .md a{color:var(--accent)}
 .pop .md{font-size:12.5px}
 @media (max-width:700px){ .frm .mde{grid-column:1} .mde-bar button[data-md]{min-width:34px;height:34px} }
+
+/* details opened in their own browser tab */
+#detail{display:none}
+body.detail #detail{display:block;max-width:980px;margin:18px auto 60px;padding:0 16px}
+body.detail #detail.box{background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px 18px 18px}
+body.detail .layout,body.detail #selbar,body.detail #drawer,body.detail #scrim,
+body.detail .topbar .nav,body.detail #qaWrap,body.detail #searchBtn,body.detail #viewSeg,body.detail #newBtn,body.detail #repBtn,
+body.detail #sideBtn,body.detail #tasksBtn,body.detail #bellBtn,body.detail #menuBtn,body.detail .topbar .dropdown:not(#tzWrap){display:none!important}
+body.detail .topbar{justify-content:flex-start}
+body.detail .topbar .brand{display:flex!important}
+.dt-card{background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:20px 24px 16px}
+.dt-head{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.dt-title{font-size:26px;line-height:1.2;margin:10px 0 14px}
+.dt-sub{font-size:13px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;border-top:1px solid var(--line);padding-top:14px}
+.dt-grid{display:grid;grid-template-columns:130px minmax(0,1fr);gap:10px 16px;margin:0}
+.dt-grid dt{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.3px;padding-top:2px}
+.dt-grid dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.dt-grid a{color:var(--accent)}
+.dt-notes{font-size:14.5px}
+.dt-acts{border-top:1px solid var(--line);padding-top:14px}
+.dt-foot{margin-top:10px}
+[data-flk][role=button],.agi[data-flk]{cursor:pointer}
+@media (max-width:700px){ .dt-grid{grid-template-columns:1fr;gap:2px} .dt-grid dd{margin-bottom:8px} .dt-card{padding:16px} .dt-title{font-size:22px} body.detail #detail{margin-top:10px;padding:0 8px} }
+@media print{ body.detail .topbar,body.detail .dt-acts{display:none!important} }
+.dt-card .warnbox{margin-top:12px}
+.chip.loc-on .hint{color:inherit;opacity:.85}
 </style>
 </head>
 <body class="locked">
@@ -758,6 +784,7 @@ button.danger:hover{border-color:var(--sick)}
 </header>
 
 <div id="banner"></div>
+<main id="detail" aria-live="polite"></main>
 <div class="layout">
   <aside id="side" aria-label="Calendars and projects"></aside>
   <main id="main"></main>
@@ -831,6 +858,7 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 const API = 'api.php';
 const POLL_MS = 60000;
 const SCHEMA = 2;
+const APP_VERSION = '2.5.0';   // see CHANGELOG.md
 const CATEGORIES = {meeting:'👥 Meeting', appointment:'📌 Appointment', deadline:'⏰ Deadline', travel:'🧳 Travel', social:'🎉 Social', other:'• Other'};
 const CAT_ICON = {meeting:'👥', appointment:'📌', deadline:'⏰', travel:'🧳', social:'🎉', other:''};
 const TASK_STATUS = {todo:'To do', 'in-progress':'In progress', waiting:'Waiting', done:'Done', cancelled:'Cancelled'};
@@ -987,7 +1015,7 @@ const DEFAULT_PREFS = {
   hourPx:44, density:'comfortable', colorBy:'project', hideWeekends:false, showLegend:true, sidePanel:true, tasksPanel:true,
   desktop:false, sound:true, quietStart:'22:00', quietEnd:'07:30', digestTime:'08:30', digest:true,
   reviewDay:4, reviewTime:'16:00', review:true, eod:false, eodTime:'18:00', snooze:[5,10,30,60,'tomorrow'],
-  activeTz:'', offlineCopy:false, tpSort:'due', tpGroup:'none', savedFilters:[]
+  activeTz:'', openDetails:'tab', offlineCopy:false, tpSort:'due', tpGroup:'none', savedFilters:[]
 };
 const DEFAULT_FILTER = {hiddenCals:[], projects:[], showDone:true, showCancelled:true, showBlocks:true, showDue:true, showFlights:true, showStatus:true, tag:''};
 function prefKey(){ return 'wtc-prefs:'+(session?session.user.toLowerCase():'-'); }
@@ -1102,10 +1130,10 @@ function dayOff(k){ return offIntervals(k).length===2; }               // whole 
 function offOverlap(k,s,e){ return offIntervals(k).filter(x=>s<x.e && x.s<e); }
 function offAt(ms){ return offIntervals(key(new Date(ms))).find(x=>ms>=x.s && ms<x.e) || null; }
 function flightWindows(k){
-  return (day(k).flights||[]).map(f=>{
+  return (day(k).flights||[]).map((f,i)=>{
     const {a,b}=flightMins(f), tz=flightTz(f);
     const s=zonedToMs(k+'T'+minToHM(a),tz), e=b>=1440?zonedToMs(keyAdd(k,1)+'T00:00',tz):zonedToMs(k+'T'+minToHM(b),tz);
-    return {s, e, f, k, tz};
+    return {s, e, f, k, tz, i};
   });
 }
 
@@ -1444,6 +1472,7 @@ async function saveNow(){
       j = await api('save', {rev, data: await serialize()});
     }
     rev = j.rev; lastSaved = {by:session.user, saved:j.saved};
+    try{ _bc && _bc.postMessage({type:'saved', rev}); }catch(e){}
     base = await serialize(); basePriv = privKey ? clone(privPart()) : basePriv;
     cacheOffline();
     netError = false;
@@ -1601,7 +1630,9 @@ async function enter(me){
   document.body.classList.remove('locked');
   afterModeChange();
   startReminders();
+  if(DETAIL) return;
   setTimeout(tzTravelPrompt, 2500);
+  routeMainHash();
 }
 async function boot(){
   showScreen('boot', 'Loading…');
@@ -1670,6 +1701,7 @@ function afterModeChange(){
    ============================================================ */
 function renderAll(){
   if(!data || !session) return;
+  if(DETAIL){ renderDetail(); renderTimerSlot(); renderTzLabel(); refreshOpenPanels(); return; }
   render(); renderSide(); renderTasksPanel(); renderBell(); renderTimerSlot(); renderTzLabel();
   if(openDay) renderDrawer();
   refreshOpenPanels();
@@ -1996,7 +2028,7 @@ function flightDisp(k,f){ // display (active zone) times of a flight
 }
 function flightsHTML(e,k){
   if(!filt.showFlights) return '';
-  return (e.flights||[]).map(f=>`<div class="fl" title="${esc(f.from)} → ${esc(f.to)}${f.note?' · '+esc(f.note):''}">✈ ${esc(code(f.from))} → ${esc(code(f.to))} <span class="t">${esc(FLIGHT_TIMES[flightKind(f)])} ${esc(k?flightDisp(k,f):flightTimeLabel(f))}</span></div>`).join('');
+  return (e.flights||[]).map((f,fi)=>`<div class="fl" data-flk="${k||''}" data-fli="${fi}" role="button" tabindex="0" title="Click for details · "${esc(f.from)} → ${esc(f.to)}${f.note?' · '+esc(f.note):''}">✈ ${esc(code(f.from))} → ${esc(code(f.to))} <span class="t">${esc(FLIGHT_TIMES[flightKind(f)])} ${esc(k?flightDisp(k,f):flightTimeLabel(f))}</span></div>`).join('');
 }
 
 /* ---------- chips (all-day row, month cells, compact week) ---------- */
@@ -2014,7 +2046,7 @@ function dueChip(t, overdue){
 }
 function flightChips(k){
   if(!filt.showFlights) return '';
-  return (day(k).flights||[]).map(f=>`<div class="chipi flight" title="${esc(f.from)} → ${esc(f.to)} · ${esc(flightLabel(f))}${f.note?' · '+esc(f.note):''}">✈ ${esc(code(f.from))}→${esc(code(f.to))} <span class="t">${esc(flightDisp(k,f))}</span></div>`).join('');
+  return (day(k).flights||[]).map((f,fi)=>`<div class="chipi flight" data-flk="${k}" data-fli="${fi}" role="button" tabindex="0" title="Click for details · "${esc(f.from)} → ${esc(f.to)} · ${esc(flightLabel(f))}${f.note?' · '+esc(f.note):''}">✈ ${esc(code(f.from))}→${esc(code(f.to))} <span class="t">${esc(flightDisp(k,f))}</span></div>`).join('');
 }
 function dayItems(k){ // all items of a day for chips, in display order
   const d0=fromKey(k).getTime(), d1=addDays(fromKey(k),1).getTime();
@@ -2199,7 +2231,7 @@ function renderGrid(days){
     all+=`<div class="tg-allc ${wk?'we':''}" data-allk="${k}">${it.overdue.map(t=>dueChip(t,true)).join('')}${it.ad.map(o=>occChip(o,k)).join('')}${it.due.map(t=>dueChip(t,false)).join('')}</div>`;
     // timed items in this column
     const d0=fromKey(k).getTime(), d1=addDays(fromKey(k),1).getTime();
-    const fls=filt.showFlights?[keyAdd(k,-1),k,keyAdd(k,1)].flatMap(fk=>flightWindows(fk)).filter(w=>w.e>d0&&w.s<d1).map(w=>({kind:'flight', s:w.s, e:w.e, f:w.f, k:w.k, title:'✈ '+code(w.f.from)+' → '+code(w.f.to)})):[];
+    const fls=filt.showFlights?[keyAdd(k,-1),k,keyAdd(k,1)].flatMap(fk=>flightWindows(fk)).filter(w=>w.e>d0&&w.s<d1).map(w=>({kind:'flight', s:w.s, e:w.e, f:w.f, k:w.k, fi:w.i, title:'✈ '+code(w.f.from)+' → '+code(w.f.to)})):[];
     const items=[...it.tm,...fls].map(o=>Object.assign(Object.create(null),{o,_s:Math.max(o.s,d0),_e:Math.min(o.e,d1)})).filter(x=>x._e>x._s).sort((a,b)=>a._s-b._s||b._e-a._e);
     const lanes=layoutLanes(items);
     const workDay=S().workDays.includes(dow(d));
@@ -2219,7 +2251,7 @@ function renderGrid(days){
 }
 function evBlockHTML(o, top, h, left, w, conf){
   if(o.kind==='flight'){ const f=o.f;
-    return `<div class="ev flt" style="top:${top}px;height:${h}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)" data-flk="${o.k}" tabindex="0" role="button" aria-label="Flight ${esc(f.from)} to ${esc(f.to)}, ${esc(flightLabel(f))}" title="${esc(f.from)} → ${esc(f.to)} · ${esc(flightLabel(f))}${f.note?' · '+esc(f.note):''} — click to edit">
+    return `<div class="ev flt" data-fli="${o.fi}" style="top:${top}px;height:${h}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)" data-flk="${o.k}" tabindex="0" role="button" aria-label="Flight ${esc(f.from)} to ${esc(f.to)}, ${esc(flightLabel(f))}" title="${esc(f.from)} → ${esc(f.to)} · ${esc(flightLabel(f))}${f.note?' · '+esc(f.note):''} — click to edit">
       <div class="tm">${hm(o.s)}–${hm(o.e)==='00:00'?'24:00':hm(o.e)}${o.k!==key(new Date(o.s))||flightTz(f)!==ACTIVE_TZ?` · ${esc(minToHM(flightMins(f).a))} ${esc(tzShort(flightTz(f)))}`:''}${flightAlarmMin(f)!==null?' ⏰':''}</div><span class="ti">✈ ${esc(code(f.from))} → ${esc(code(f.to))}</span>${h>44&&f.note?`<div class="lo">${esc(f.note)}</div>`:''}</div>`; }
   if(o.kind==='busy') return `<div class="ev busy" style="top:${top}px;height:${h}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)" title="Busy (Personal items are locked)"><span class="ti">Busy</span></div>`;
   const it=o.item, c=itemColor(it), task=o.kind==='block';
@@ -2242,7 +2274,7 @@ function renderAgenda(){
   for(let i=0;i<agendaDays;i++){
     const d=addDays(start,i), k=key(d), e=day(k), it=dayItems(k);
     const rows=[];
-    for(const f of (filt.showFlights?(e.flights||[]):[])) rows.push(`<div class="agi" style="cursor:default"><span class="t">${esc(flightDisp(k,f))}</span><div class="b" style="--c:var(--accent)"><span class="ti">✈ ${esc(f.from)} → ${esc(f.to)}</span>${f.note?`<div class="s">${esc(f.note)}</div>`:''}</div></div>`);
+    for(const [fi,f] of (filt.showFlights?(e.flights||[]):[]).entries()) rows.push(`<div class="agi" data-flk="${k}" data-fli="${fi}" tabindex="0"><span class="t">${esc(flightDisp(k,f))}</span><div class="b" style="--c:var(--accent)"><span class="ti">✈ ${esc(f.from)} → ${esc(f.to)}</span>${f.note?`<div class="s">${esc(f.note)}</div>`:''}</div></div>`);
     for(const t of it.overdue) rows.push(agTaskRow(t,'Overdue'));
     for(const o of it.ad) rows.push(agOccRow(o,'All day'));
     for(const o of it.tm) rows.push(agOccRow(o,`${hm(o.s)}–${hm(o.e)}`));
@@ -2315,6 +2347,9 @@ function bindMain(){
     el.addEventListener('dragstart',e=>{ e.dataTransfer.setData('text/x-task', el.dataset.task); e.dataTransfer.setData('text/x-due', el.dataset.task); });
   });
   bindTaskRows(M);
+  $$('[data-flk]',M).forEach(el=>{ if(!el.dataset.flk) return;
+    const go=e=>{ e.stopPropagation(); openFlight(el.dataset.flk, +el.dataset.fli); };
+    el.addEventListener('click',go); el.addEventListener('keydown',e=>{ if(e.key==='Enter') go(e); }); });
   // drop targets: month cells, compact week columns, all-day cells
   $$('.cell[data-k],.wcol[data-k],[data-allk]',M).forEach(c=>{
     const k=c.dataset.k||c.dataset.allk;
@@ -2417,7 +2452,7 @@ function bindGrid(){
     });
   });
   // flights: click opens the day to edit times
-  $$('.ev.flt',body).forEach(el=>{ el.onclick=()=>openDrawer(el.dataset.flk); el.onkeydown=e=>{ if(e.key==='Enter') openDrawer(el.dataset.flk); }; el.addEventListener('pointerdown',e=>e.stopPropagation()); });
+  $$('.ev.flt',body).forEach(el=>{ el.onclick=()=>openFlight(el.dataset.flk,+el.dataset.fli); el.onkeydown=e=>{ if(e.key==='Enter') openFlight(el.dataset.flk,+el.dataset.fli); }; el.addEventListener('pointerdown',e=>e.stopPropagation()); });
   // items: click, move, resize
   $$('.ev[data-occ]',body).forEach(el=>{
     el.addEventListener('keydown',e=>{
@@ -2686,6 +2721,7 @@ function convertItem(it){
 /* ---------- popover for a calendar entry ---------- */
 function openOccPopover(id, oc, kind, anchorEl){
   closePopover();
+  if(kind==='event' && useTabs()) return openDetailTab({t:'event', id, occ:oc});
   const it=findItem(id); if(!it) return;
   const o=findOcc(id,oc,kind); if(!o) return;
   selItem={kind,id,occ:oc};
@@ -3437,9 +3473,13 @@ function projStats(p){
   return {ts, es, done, open, overdue:ts.filter(isOverdue).length, est, planned, spent, progress};
 }
 let ppTab='tasks', ppView='list';
-function openProjectPage(id){
+function openProjectPage(id){ if(useTabs()) return openDetailTab({t:'project', id}); showProjectPage(id, null); }
+/* page: element to draw into (details tab), or null to show it in a dialog */
+function showProjectPage(id, page){
+  const box=()=>page || dd.querySelector('.box'), close=()=>page ? closeDetailTab() : closeDialog(dd);
   const draw=()=>{
-    const p=proj(id); if(!p){ closeDialog(dd); return; }
+    const p=proj(id); if(!p){ if(page) return renderDetailMissing('project'); closeDialog(dd); return; }
+    if(page) document.title=(p.icon||'')+' '+p.name+' · Work & Travel';
     const st=projStats(p), c=cal(p.calendarId);
     const budget=p.budgetHours?`<div style="min-width:220px"><div class="hint">Hours: ${fmtH(st.planned)} planned · ${fmtH(st.spent)} spent · budget ${p.budgetHours} h</div><div class="progress ${st.planned/60>p.budgetHours?'over':''}"><i style="width:${Math.min(100,st.spent/60/p.budgetHours*100)}%"></i></div></div>`:'';
     let body='';
@@ -3473,13 +3513,13 @@ function openProjectPage(id){
       ${barChart([{label:'Estimated',v:st.est/60,c:'var(--muted)'},{label:'Planned',v:st.planned/60,c:p.color},{label:'Spent',v:st.spent/60,c:'var(--tele)'},...(p.budgetHours?[{label:'Budget',v:p.budgetHours,c:'var(--leave)'}]:[])],'h')}
       <div class="rsec">Upcoming deadlines</div>${st.ts.filter(t=>isOpen(t)&&t.dueDate).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).slice(0,8).map(t=>taskRowHTML(t)).join('')||'<div class="hint">None.</div>'}`;
     }
-    dd.querySelector('.box').innerHTML=`<div class="dhd"><span class="dotc" style="background:${esc(p.color)};width:16px;height:16px"></span><h2>${esc(p.icon||'')} ${esc(p.name)}</h2>
+    box().innerHTML=`<div class="dhd"><span class="dotc" style="background:${esc(p.color)};width:16px;height:16px"></span><h2>${esc(p.icon||'')} ${esc(p.name)}</h2>
       <span class="tag">${esc(c.name)}</span><span class="tag">${PROJ_STATUS[p.status]}</span>${editable?'<button data-pedit>✎ Edit</button>':''}<button data-prep>📊 Report</button><button class="ghost" data-close>✕</button></div>
       <div class="pp-head">${p.dueDate?`<span class="hint">Due ${esc(fmtShort(fromKey(p.dueDate)))}</span>`:''}<div style="flex:1;min-width:180px"><div class="hint">${st.done} of ${st.done+st.open} tasks done</div><div class="progress"><i style="width:${Math.round(st.progress*100)}%"></i></div></div>${budget}</div>
       ${p.description?`<p class="hint">${esc(p.description)}</p>`:''}
       <div class="tabs">${[['tasks','Tasks'],['timeline','Timeline'],['stats','Stats']].map(([k,l])=>`<button data-ptab="${k}" class="${ppTab===k?'on':''}">${l}</button>`).join('')}</div>${body}`;
-    const B=dd.querySelector('.box');
-    $$('[data-close]',B).forEach(b=>b.onclick=()=>closeDialog(dd));
+    const B=box();
+    $$('[data-close]',B).forEach(b=>b.onclick=close);
     $$('[data-ptab]',B).forEach(b=>b.onclick=()=>{ ppTab=b.dataset.ptab; draw(); });
     $$('[data-pv]',B).forEach(b=>b.onclick=()=>{ ppView=b.dataset.pv; draw(); });
     const pe=$('[data-pedit]',B); if(pe) pe.onclick=()=>openProjectEditor(id);
@@ -3490,8 +3530,9 @@ function openProjectPage(id){
     $$('.bcol',B).forEach(c=>{ c.addEventListener('dragover',e=>{ if(editable){ e.preventDefault(); c.classList.add('dragover'); } }); c.addEventListener('dragleave',()=>c.classList.remove('dragover'));
       c.addEventListener('drop',e=>{ c.classList.remove('dragover'); e.preventDefault(); const t=task(e.dataTransfer.getData('text/x-task')); if(t) setTaskStatus(t,c.dataset.status); }); });
   };
-  const dd=openDialog('',{size:'wide', refresh:()=>draw()});
+  const dd=page ? null : openDialog('',{size:'wide', refresh:()=>draw()});
   draw();
+  return draw;
 }
 
 /* ============================================================
@@ -3694,10 +3735,15 @@ function endFocus(){ clearInterval(_focusTick); $('#focus').classList.remove('op
    ============================================================ */
 const TAB_ID = uid('tab');
 const remK = s => `wtc-${s}:${session?session.user.toLowerCase():'-'}`;
-let _bc=null; try{ _bc=new BroadcastChannel('wtc'); _bc.onmessage=e=>{ if(e.data==='notif') renderBell(); if(e.data==='dismiss') syncToasts(); }; }catch(e){}
+let _bc=null; try{ _bc=new BroadcastChannel('wtc'); _bc.onmessage=e=>{ const m=e.data;
+  if(m==='notif') renderBell(); if(m==='dismiss') syncToasts();
+  if(m && m.type==='saved' && session) reloadData(false);                 // another tab saved: pick it up now
+  if(m && m.type==='goto' && !DETAIL && session) gotoDay(m.k);             // a details tab asked to show a day
+}; }catch(e){}
 function isLeader(){
   const l=jget('wtc-leader',null), now=Date.now();
-  if(!l || l.id===TAB_ID || now-l.ts>25000){ jset('wtc-leader',{id:TAB_ID,ts:now}); return jget('wtc-leader',{}).id===TAB_ID; }
+  // details tabs only take over if no calendar tab is running
+  if(!l || l.id===TAB_ID || now-l.ts>(DETAIL?70000:25000)){ jset('wtc-leader',{id:TAB_ID,ts:now}); return jget('wtc-leader',{}).id===TAB_ID; }
   return false;
 }
 addEventListener('beforeunload',()=>{ const l=jget('wtc-leader',null); if(l && l.id===TAB_ID) safeDel('wtc-leader'); });
@@ -3784,7 +3830,7 @@ function openNotifTarget(n){
   if(!n.itemId) return;
   if(String(n.itemId).startsWith('day:')){ const k=n.itemId.slice(4); cursor=fromKey(k); render(); return openDrawer(k); }
   const it=findItem(n.itemId);
-  if(it && it.type==='event') return openEventEditor(it.id,null,n.occ);
+  if(it && it.type==='event') return openEvent(it.id,n.occ);
   if(it && it.type==='task') return openTaskEditor(it.id);
   if(proj(n.itemId)) return openProjectPage(n.itemId);
 }
@@ -3893,7 +3939,7 @@ function showAway(list){
 }
 /* daily agenda (first open after the digest time), weekly review and end-of-day prompts */
 function dailyPrompts(){
-  if(!session || !data || !isLeader()) return;
+  if(!session || !data || DETAIL || !isLeader()) return;
   const n=new Date(NOW()), m=n.getHours()*60+n.getMinutes(), tk=todayKey();
   if(prefs.digest && m>=(hmToMin(prefs.digestTime)??510) && safeGet(remK('digest'))!==tk && !_dlgStack.length){
     safeSet(remK('digest'),tk); openReports('daily',{date:tk, digest:true});
@@ -4527,8 +4573,10 @@ function openSettings(tab){
       <label>All-day reminders at</label><input type="time" name="allDayRemTime" value="${s.allDayRemTime}" ${ro}>
       <div class="sec">This device</div>
       <label>Hour height</label><div class="row"><input type="range" min="24" max="96" step="4" data-p="hourPx" value="${prefs.hourPx}"> <span class="hint">${prefs.hourPx}px</span></div>
+      <label>Open details</label><div class="row"><select data-p="openDetails"><option value="tab" ${(prefs.openDetails||'tab')!=='popup'?'selected':''}>In a new browser tab</option><option value="popup" ${prefs.openDetails==='popup'?'selected':''}>In a popup on the calendar</option></select><span class="hint">when you click an event, a project or a flight</span></div>
       <label>Offline copy</label><label class="hint"><input type="checkbox" data-p="offlineCopy" ${prefs.offlineCopy?'checked':''}> Keep a copy on this device so the calendar opens without internet (read-only). Don’t use on shared computers.</label>
-      <label>Install</label><div class="hint">${installHint()}</div></form>`;
+      <label>Install</label><div class="hint">${installHint()}</div>
+      <label>Version</label><div class="hint">Work &amp; Travel Calendar ${APP_VERSION}</div></form>`;
     if(setTab==='notify') body=`<form class="frm" data-sf>
       <div class="sec" style="border:0;padding-top:0">Defaults for new items</div>
       <label>Events</label>${remPreview(s.defaultEventRem)}<label>Task due</label>${remPreview(s.defaultDueRem)}<label>Task blocks</label>${remPreview(s.defaultBlockRem)}
@@ -4839,7 +4887,7 @@ function openSearch(initial){
     results=[];
     if(!words.length && !Object.keys(fl).length){ out.innerHTML='<div class="hint" style="padding:8px">Type to search. Try <kbd>is:overdue</kbd>, <kbd>project:council</kbd>, <kbd>tag:budget</kbd>, <kbd>type:event after:2026-11-01</kbd>.</div>'; return; }
     const filt2=it=>pmatch(it)&&tmatch(it)&&cmatch(it)&&dmatch(it)&&ismatch(it);
-    if(okType('events')) for(const e of pool.events) if(filt2(e) && hit([e.title,e.notes,e.location,e.tags.join(' '),e.attendees.join(' '),Object.values(e.exceptions).map(x=>x.title||'').join(' ')].join(' '))) results.push({g:'Events', label:(e.rrule?'🔁 ':'')+e.title, d:(e.allDay?fmtShort(fromKey(e.start.slice(0,10))):fmtShort(fromKey(e.start.slice(0,10)))+' '+e.start.slice(11,16))+(e._arch?' · archive':''), c:itemColor(e), go:()=>{ if(e._arch) return; openEventEditor(e.id); }, k:e.start});
+    if(okType('events')) for(const e of pool.events) if(filt2(e) && hit([e.title,e.notes,e.location,e.tags.join(' '),e.attendees.join(' '),Object.values(e.exceptions).map(x=>x.title||'').join(' ')].join(' '))) results.push({g:'Events', label:(e.rrule?'🔁 ':'')+e.title, d:(e.allDay?fmtShort(fromKey(e.start.slice(0,10))):fmtShort(fromKey(e.start.slice(0,10)))+' '+e.start.slice(11,16))+(e._arch?' · archive':''), c:itemColor(e), go:()=>{ if(e._arch) return; openEvent(e.id); }, k:e.start});
     if(okType('tasks')) for(const t of pool.tasks) if(filt2(t) && hit([t.title,t.notes,t.tags.join(' '),t.checklist.map(c=>c.text).join(' ')].join(' '))) results.push({g:'Tasks', label:(isOpen(t)?'☐ ':'✓ ')+t.title, d:(t.dueDate?'due '+fmtShort(fromKey(t.dueDate)):'')+(t._arch?' · archive':''), c:itemColor(t), go:()=>{ if(t._arch) return; openTaskEditor(t.id); }, k:t.dueDate||''});
     if(!fl.type && !fl.is && !fl.tag) for(const p of data.projects) if(hit(p.name+' '+p.description)) results.push({g:'Projects', label:(p.icon||'')+' '+p.name, d:PROJ_STATUS[p.status], c:p.color, go:()=>openProjectPage(p.id), k:''});
     if(!Object.keys(fl).length) for(const [k,e] of Object.entries(data.days)){
@@ -4985,6 +5033,202 @@ document.addEventListener('keydown',e=>{
   else if((k==='Delete'||k==='Backspace') && selItem && editable){ e.preventDefault(); const it=findItem(selItem.id); if(!it) return; if(it.type==='task' && selItem.kind==='task') { confirmDlg({title:'Delete task',html:`Delete “${esc(it.title)}”?`},[['Delete','y','danger'],['Cancel',null]]).then(y=>{ if(y) removeItem(it); }); } else deleteOcc(it.id, selItem.occ||it.start.slice(0,10), selItem.kind); }
 });
 window.addEventListener('beforeunload',e=>{ if(editable && (dirty || saving)){ e.preventDefault(); e.returnValue=''; } });
+
+/* ============================================================
+   Details in a new browser tab (events of every type, projects, flights)
+   URL:  index.php#open=event&id=…&occ=YYYY-MM-DD
+         index.php#open=project&id=…
+         index.php#open=flight&day=YYYY-MM-DD&n=0
+   The tab signs in with the same session, shows the details full-page,
+   lets editors change them, and stays in sync with the calendar tab
+   (every save is announced to the other tabs).
+   Settings → General → "Open details" switches back to the popup.
+   ============================================================ */
+const DETAIL = (()=>{
+  const h=new URLSearchParams(location.hash.slice(1)), t=h.get('open');
+  if(!['event','project','flight'].includes(t)) return null;
+  return {t, id:h.get('id')||'', occ:h.get('occ')||'', k:h.get('day')||'', i:+(h.get('n')||0), from:h.get('from')||'', to:h.get('to')||''};
+})();
+if(DETAIL) document.body.classList.add('detail'); else { try{ if(!window.name || !window.name.startsWith('wtc-')) window.name='wtc-main'; }catch(e){} }
+
+function useTabs(){ return !!DETAIL || (prefs.openDetails||'tab')!=='popup'; }
+function detailUrl(o){
+  const p=new URLSearchParams({open:o.t});
+  if(o.id) p.set('id',o.id); if(o.occ) p.set('occ',o.occ);
+  if(o.t==='flight'){ p.set('day',o.k); p.set('n',o.i); const f=(day(o.k).flights||[])[o.i]; if(f){ p.set('from',f.from||''); p.set('to',f.to||''); } }
+  return location.pathname+location.search+'#'+p.toString();
+}
+function openDetailTab(o){
+  const name='wtc-'+o.t+'-'+(o.t==='flight'?o.k+'-'+o.i:o.id)+(o.occ?'-'+o.occ:'');   // same item → same tab
+  let w=null; try{ w=window.open(detailUrl(o), name); }catch(e){}
+  if(!w){   // pop-ups blocked: show it here instead
+    toast('Your browser blocked the new tab. Allow pop-ups for this site, or choose “popup” in ⚙ Settings → General → Open details.',{ms:9000});
+    if(o.t==='event') return openEventEditor(o.id,null,o.occ);
+    if(o.t==='project') return showProjectPage(o.id,null);
+    return openDrawer(o.k);
+  }
+  try{ w.focus(); }catch(e){}
+}
+function openEvent(id, occ){ if(useTabs()) return openDetailTab({t:'event', id, occ:occ||''}); openEventEditor(id,null,occ); }
+function openFlight(k, i){ if(useTabs()) return openDetailTab({t:'flight', k, i:+i||0}); openDrawer(k); }
+function closeDetailTab(){
+  window.close();                       // works for tabs opened by the calendar
+  setTimeout(()=>{ location.href=location.pathname+location.search; },300);   // otherwise: go to the calendar
+}
+/* show a day in the calendar tab (reuses it, or opens one) */
+function showInCalendar(k){
+  let w=null; try{ w=window.open('', 'wtc-main'); }catch(e){}
+  let blank=false; try{ blank=!w || w.location.href==='about:blank'; }catch(e){ blank=false; }
+  if(w && blank){ w.location.href=location.pathname+location.search+'#day='+k; return; }
+  if(!w){ location.href=location.pathname+location.search+'#day='+k; return; }
+  try{ _bc && _bc.postMessage({type:'goto', k}); w.focus(); }catch(e){}
+}
+function gotoDay(k){ if(!/^\d{4}-\d{2}-\d{2}$/.test(k||'')) return; cursor=fromKey(k); miniCursor=null; if(view==='month'||view==='board'||view==='agenda') view='day'; renderAll(); try{ window.focus(); }catch(e){} }
+function routeMainHash(){
+  const h=new URLSearchParams(location.hash.slice(1)), k=h.get('day');
+  if(k){ gotoDay(k); history.replaceState(null,'',location.pathname+location.search); }
+}
+window.addEventListener('hashchange',()=>{ if(DETAIL) location.reload(); else if(session) routeMainHash(); });
+
+/* ---------- rendering ---------- */
+let _detailProjectDraw=null;
+function renderDetail(){
+  const el=$('#detail'); if(!el || !data) return;
+  if(DETAIL.t==='project'){ if(!_detailProjectDraw || !el.firstChild) _detailProjectDraw=showProjectPage(DETAIL.id, el); else _detailProjectDraw(); el.classList.add('box'); return; }
+  el.classList.remove('box');
+  if(DETAIL.t==='event') return renderEventDetail(el);
+  if(DETAIL.t==='flight') return renderFlightDetail(el);
+}
+function renderDetailMissing(kind){
+  const el=$('#detail'); document.title='Not found · Work & Travel';
+  el.innerHTML=`<div class="dt-card"><h1 class="dt-title">This ${kind} is not available</h1>
+    <p class="hint">It may have been deleted${privLocked?', or it is a Personal item and Personal items are locked on this device':''}.</p>
+    <div class="dacts">${privLocked?'<button data-unl class="primary">🔑 Unlock Personal items</button>':''}<button data-cal>📅 Open the calendar</button><button data-x>Close tab</button></div></div>`;
+  const u=$('[data-unl]',el); if(u) u.onclick=openUnlock;
+  $('[data-cal]',el).onclick=()=>{ location.href=location.pathname+location.search; };
+  $('[data-x]',el).onclick=closeDetailTab;
+}
+const dtRow=(label,html)=>html?`<dt>${esc(label)}</dt><dd>${html}</dd>`:'';
+function remText(r){ return esc((OFFSETS.find(o=>o[0]===+r.offsetMin)||[0,fmtDur(r.offsetMin)+' before'])[1])+(r.channel&&r.channel!=='popup'?' · desktop'+(r.channel==='sound'?' + sound':''):''); }
+
+function renderEventDetail(el){
+  const it=ev(DETAIL.id); if(!it) return renderDetailMissing('event');
+  let o=null;
+  if(it.rrule && DETAIL.occ && it.exceptions[DETAIL.occ] && it.exceptions[DETAIL.occ].deleted) return renderDetailMissing('occurrence');   // that occurrence was deleted
+  if(it.rrule && DETAIL.occ) o=findOcc(it.id, DETAIL.occ, 'event');
+  if(!o) o=it.rrule ? (expandEvent(it, NOW()-864e5, NOW()+400*864e5)[0] || expandEvent(it,-1e14,1e14)[0]) : expandEvent(it,-1e14,1e14)[0];
+  if(!o) return renderDetailMissing('event');
+  const p=proj(it.projectId), c=cal(it.calendarId), tz=it.tz;
+  document.title=(o.cancelled?'✕ ':'')+o.title+' · Work & Travel';
+  const when = o.allDay
+    ? (o.dateKey===o.endKey ? fmtLong(fromKey(o.dateKey)) : fmtLong(fromKey(o.dateKey))+' – '+fmtLong(fromKey(o.endKey)))+' · all day'
+    : `${fmtLong(new Date(o.s))}<br><b>${hm(o.s)} – ${hm(o.e)}</b> <span class="hint">(${esc(tzShort(ACTIVE_TZ))} time · ${fmtDur((o.e-o.s)/60000)})</span>`
+      +(tz && tz!==ACTIVE_TZ?`<div class="hint">Entered in ${esc(tzShort(tz))} time: ${esc(msToZoned(o.s,tz).slice(11))} – ${esc(msToZoned(o.e,tz).slice(11))}</div>`:'');
+  const conf=o.allDay?null:conflictsIn(occurrences(o.s-864e5,o.e+864e5,{all:true})).get(it.id+'|'+o.occ);
+  const linked=it.linkedTaskIds.map(task).filter(Boolean);
+  const k=o.dateKey||key(new Date(o.s));
+  el.innerHTML=`<div class="dt-card">
+    <div class="dt-head"><span class="dotc" style="background:${esc(itemColor(it))};width:14px;height:14px"></span>
+      <span class="tag k">${esc(CATEGORIES[it.category]||'Event')}</span>${it.rrule?'<span class="tag">🔁 repeating</span>':''}${o.cancelled?'<span class="tag" style="color:var(--sick)">Cancelled</span>':''}${isPrivate(it)?'<span class="tag">🔒 private</span>':''}</div>
+    <h1 class="dt-title redtitle">${o.cancelled?'<s>':''}${esc(o.title)}${o.cancelled?'</s>':''}</h1>
+    <dl class="dt-grid">
+      ${dtRow('When', when)}
+      ${dtRow('Repeats', it.rrule?esc(rrText(it.rrule))+(o.ex?' · <i>this occurrence was changed</i>':''):'')}
+      ${dtRow('Calendar', `<i class="dotc" style="display:inline-block;background:${esc(c.color)}"></i> ${esc(c.name)}`)}
+      ${dtRow('Project', p?`<a href="#" data-proj="${esc(p.id)}">${esc(p.icon||'')} ${esc(p.name)}</a>`:'')}
+      ${dtRow('Location', (o.location||it.location)?'📍 '+esc(o.location||it.location):'')}
+      ${dtRow('Online', it.onlineLink?`<a href="${esc(it.onlineLink)}" target="_blank" rel="noopener noreferrer">${esc(it.onlineLink)}</a>`:'')}
+      ${dtRow('Attendees', it.attendees.length?esc(it.attendees.join(', ')):'')}
+      ${dtRow('Show as', esc(SHOW_AS[it.showAs]||''))}
+      ${dtRow('Reminders', it.reminders.map(remText).join('<br>'))}
+      ${dtRow('Tags', it.tags.map(t=>`<span class="tag">#${esc(t)}</span>`).join(' '))}
+      ${dtRow('Links', it.links.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label||l.url)}</a>`).join('<br>'))}
+      ${dtRow('Tasks', linked.map(t=>`<a href="#" data-task="${esc(t.id)}">${isOpen(t)?'☐':'✓'} ${esc(t.title)}</a>`).join('<br>'))}
+    </dl>
+    ${conf?`<div class="warnbox">⚠ ${conf.map(esc).join('<br>')}</div>`:''}
+    ${it.notes?`<h2 class="dt-sub">Notes</h2><div class="md dt-notes">${md(it.notes)}</div>`:''}
+    <div class="dacts dt-acts">
+      ${editable?'<button class="primary" data-a="edit">✎ Edit</button><button data-a="follow">＋ Follow-up task</button><button data-a="dup">Duplicate</button>':''}
+      ${it.onlineLink?'<button data-a="join">🔗 Join</button>':''}
+      <button data-a="cal">📅 Show in calendar</button><button data-a="ics">⬇ .ics</button>
+      ${editable?'<button data-a="del" class="danger">Delete</button>':''}
+      <span class="sp"></span><button data-a="close">Close tab</button>
+    </div>
+    <div class="hint dt-foot">Updated ${esc(fmtWhen(it.updated))}. This tab stays up to date with the calendar.</div></div>`;
+  const a=(n,fn)=>{ const b=$(`[data-a="${n}"]`,el); if(b) b.onclick=fn; };
+  a('edit',()=>openEventEditor(it.id,null,o.occ));
+  a('follow',()=>{ const t=newTask({title:'Follow up: '+it.title, calendarId:it.calendarId, projectId:it.projectId, dueDate:keyAdd(k,2), private:it.private}); openTaskEditor(null,t,{linkEvent:it.id}); });
+  a('dup',()=>{ const c2=duplicateItem(it); openDetailTab({t:'event', id:c2.id}); });
+  a('join',()=>window.open(it.onlineLink,'_blank','noopener'));
+  a('cal',()=>showInCalendar(k));
+  a('ics',()=>exportIcs({items:[it], name:it.title}));
+  a('del',()=>deleteOcc(it.id, o.occ, 'event'));
+  a('close',closeDetailTab);
+  $$('[data-proj]',el).forEach(x=>x.onclick=e=>{ e.preventDefault(); openDetailTab({t:'project', id:x.dataset.proj}); });
+  $$('[data-task]',el).forEach(x=>x.onclick=e=>{ e.preventDefault(); openTaskEditor(x.dataset.task); });
+}
+
+function detailFlight(){
+  const fl=day(DETAIL.k).flights||[];
+  let i=DETAIL.i;
+  if(DETAIL.from||DETAIL.to){   // flights of that day changed order: find it by its route
+    const ok=f=>f && (f.from||'')===DETAIL.from && (f.to||'')===DETAIL.to;
+    if(!ok(fl[i])){ const j=fl.findIndex(ok); if(j>=0) i=j; }
+  }
+  return fl[i] ? {f:fl[i], i} : null;
+}
+function renderFlightDetail(el){
+  const hit=detailFlight(); if(!hit) return renderDetailMissing('flight');
+  const {f,i}=hit, k=DETAIL.k, ro=!editable, dis=ro?'disabled':'';
+  const m=flightMins(f), ftz=flightTz(f), w=flightWindows(k).find(x=>x.i===i), al=flightAlarmMin(f);
+  const ttz=CITY_TZ[(f.to||'').trim().toLowerCase()];
+  document.title='✈ '+code(f.from)+' → '+code(f.to)+' · '+fmtShort(fromKey(k));
+  const evs=w?occurrences(w.s-12*3600000, w.e+12*3600000,{all:true}).filter(o=>o.kind==='event'&&!o.allDay&&!o.cancelled&&(privKey||!isPrivate(o.item))):[];
+  const e=day(k), l=locationOf(keyAdd(k,1));
+  el.innerHTML=`<div class="dt-card">
+    <div class="dt-head"><span class="tag k">✈ Flight</span><span class="tag">${esc(FLIGHT_TIMES[flightKind(f)])}</span>${al===null?'<span class="tag">⏰ alarm off</span>':`<span class="tag">⏰ ${minToHM(al)}</span>`}</div>
+    <h1 class="dt-title redtitle">${esc(f.from||'?')} → ${esc(f.to||'?')}</h1>
+    <div class="hint" style="font-size:15px;margin:-4px 0 12px">${esc(fmtLong(fromKey(k)))}</div>
+    <dl class="dt-grid">
+      ${dtRow('Departs', `<b>${minToHM(m.a)}</b> ${esc(tzShort(ftz))} time${w&&ftz!==ACTIVE_TZ?` <span class="hint">(${hm(w.s)} ${esc(tzShort(ACTIVE_TZ))})</span>`:''}`)}
+      ${dtRow('Arrives', `<b>${m.b>=1440?'24:00':minToHM(m.b)}</b> ${esc(tzShort(ftz))} time${w&&ftz!==ACTIVE_TZ?` <span class="hint">(${hm(w.e)} ${esc(tzShort(ACTIVE_TZ))})</span>`:''}${ttz&&ttz!==ftz&&w?` <span class="hint">· ${esc(msToZoned(w.e,ttz).slice(11))} local in ${esc(tzShort(ttz))}</span>`:''}`)}
+      ${dtRow('Flight', f.note?esc(f.note):'')}
+      ${dtRow('Work status', !isWeekend(fromKey(k))&&(e.am||e.pm)?esc(e.am===e.pm?STATUSES[e.am].label:'Morning '+(e.am?STATUSES[e.am].label:'—')+' · Evening '+(e.pm?STATUSES[e.pm].label:'—')):'')}
+      ${dtRow('Next day in', l?'📍 '+esc(l.name):'')}
+      ${dtRow('Around it', evs.map(o=>`<a href="#" data-occ="${esc(o.id)}" data-oc="${esc(o.occ)}">${esc(fmtShort(new Date(o.s)))} ${hm(o.s)} · ${esc(o.title)}</a>`).join('<br>'))}
+    </dl>
+    ${ro?'':`<h2 class="dt-sub">Edit</h2>
+    <div class="flight" style="max-width:640px">
+      <div class="route">✈ <input type="text" data-ff="from" value="${esc(f.from)}" aria-label="From"> → <input type="text" data-ff="to" value="${esc(f.to)}" aria-label="To"></div><span></span>
+      <div class="row2">${Object.entries(FLIGHT_TIMES).map(([t,lab])=>`<button class="chip ${flightKind(f)===t?'loc-on':''}" data-ft="${t}" ${dis}>${lab} <span class="hint">${minToHM(FLIGHT_WINDOWS[t][0])}–${FLIGHT_WINDOWS[t][1]>=1440?'24':minToHM(FLIGHT_WINDOWS[t][1]).replace(':00','')}</span></button>`).join('')}</div>
+      <div class="row2"><label class="hint">Departs <input type="time" data-fx="dep" value="${minToHM(m.a)}" step="300"></label><label class="hint">Arrives <input type="time" data-fx="arr" value="${m.b>=1440?'23:59':minToHM(m.b)}" step="300"></label>
+        <label class="hint">⏰ Alarm <input type="time" data-fx="alarm" value="${al===null?'':minToHM(al)}" step="300"></label><label class="hint"><input type="checkbox" data-falarm ${al===null?'':'checked'}> alarm on</label>
+        ${m.custom||f.alarm?`<button class="chip" data-freset>↺ default</button>`:''}</div>
+      <div class="row2"><input type="text" data-ff="note" value="${esc(f.note||'')}" placeholder="Flight number, e.g. A3 610"></div>
+    </div>`}
+    <div class="dacts dt-acts"><button data-a="cal">📅 Show day in calendar</button>${ro?'':'<button data-a="del" class="danger">Delete flight</button>'}<span class="sp"></span><button data-a="close">Close tab</button></div>
+    <div class="hint dt-foot">Times are local to the departure city (${esc(tzShort(ftz))}). This tab stays up to date with the calendar.</div></div>`;
+  $('[data-a=cal]',el).onclick=()=>showInCalendar(k);
+  $('[data-a=close]',el).onclick=closeDetailTab;
+  $$('[data-occ]',el).forEach(x=>x.onclick=ev2=>{ ev2.preventDefault(); openDetailTab({t:'event', id:x.dataset.occ, occ:x.dataset.oc}); });
+  if(ro) return;
+  const cur=()=>day(k).flights[detailFlight().i];
+  const commit=()=>{ const g=cur(); DETAIL.from=g.from||''; DETAIL.to=g.to||''; history.replaceState(null,'',detailUrl({t:'flight',k,i:detailFlight().i})); prune(k); changed(); renderAll(); };
+  $$('[data-ff]',el).forEach(inp=>inp.onchange=()=>{ cur()[inp.dataset.ff]=inp.value.trim(); commit(); });
+  $$('[data-ft]',el).forEach(b=>b.onclick=()=>{ const g=cur(); g.time=b.dataset.ft; delete g.dep; delete g.arr; delete g.alarm; commit(); });
+  $$('[data-fx]',el).forEach(inp=>inp.onchange=()=>{ const g=cur(), v=inp.value, n=inp.dataset.fx;
+    if(n==='alarm'){ g.alarm=v||'off'; } else if(!v) delete g[n]; else g[n]=v;
+    const d=FLIGHT_WINDOWS[flightKind(g)];
+    if(g.dep===minToHM(d[0]) && (g.arr===minToHM(d[1])||(d[1]>=1440&&g.arr==='23:59')||!g.arr)){ delete g.dep; delete g.arr; }
+    if(g.alarm && g.alarm!=='off' && g.alarm===minToHM(flightAlarmMin({...g,alarm:undefined}))) delete g.alarm;
+    commit(); });
+  const fa=$('[data-falarm]',el); if(fa) fa.onchange=()=>{ const g=cur(); if(fa.checked) delete g.alarm; else g.alarm='off'; commit(); };
+  const fr=$('[data-freset]',el); if(fr) fr.onclick=()=>{ const g=cur(); delete g.dep; delete g.arr; delete g.alarm; commit(); };
+  $('[data-a=del]',el).onclick=async()=>{
+    if(!await confirmDlg({title:'Delete flight', html:`Delete the flight ${esc(f.from)} → ${esc(f.to)} on ${esc(fmtLong(fromKey(k)))}?`},[['Delete','y','danger'],['Cancel',null]])) return;
+    day(k).flights.splice(detailFlight().i,1); prune(k); changed(); renderAll(); toast('Flight deleted',{actions:[['Undo',undo]]});
+  };
+}
 
 /* ---------- start ---------- */
 bindTop();

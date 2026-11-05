@@ -3,6 +3,7 @@
    ============================================================ */
 function renderAll(){
   if(!data || !session) return;
+  if(DETAIL){ renderDetail(); renderTimerSlot(); renderTzLabel(); refreshOpenPanels(); return; }
   render(); renderSide(); renderTasksPanel(); renderBell(); renderTimerSlot(); renderTzLabel();
   if(openDay) renderDrawer();
   refreshOpenPanels();

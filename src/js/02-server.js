@@ -59,6 +59,7 @@ async function saveNow(){
       j = await api('save', {rev, data: await serialize()});
     }
     rev = j.rev; lastSaved = {by:session.user, saved:j.saved};
+    try{ _bc && _bc.postMessage({type:'saved', rev}); }catch(e){}
     base = await serialize(); basePriv = privKey ? clone(privPart()) : basePriv;
     cacheOffline();
     netError = false;
@@ -216,7 +217,9 @@ async function enter(me){
   document.body.classList.remove('locked');
   afterModeChange();
   startReminders();
+  if(DETAIL) return;
   setTimeout(tzTravelPrompt, 2500);
+  routeMainHash();
 }
 async function boot(){
   showScreen('boot', 'Loading…');

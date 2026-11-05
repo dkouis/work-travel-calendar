@@ -119,3 +119,11 @@ PASSWORDS AND RESETS (5 Nov 2026)
   FULL RESET: deleting data/users.php removes all accounts. The next visitor
   sees "First start" and creates new accounts, so do it only if you can open
   the calendar yourself right away. The calendar data is not affected.
+
+DETAILS IN A NEW TAB (5 Nov 2026, version 2.5.0)
+  Clicking an event, a project or a flight opens its details in a new browser
+  tab, where you can also edit it. The calendar tab and the details tabs keep
+  each other up to date. If your browser blocks it, allow pop-ups for the
+  calendar's address. To go back to the popup: ⚙ Settings → General →
+  Open details → "In a popup on the calendar".
+  Full list of changes: CHANGELOG.md in the GitHub repository.
