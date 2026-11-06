@@ -48,7 +48,24 @@ function cfbRead(buf){
 }
 const _u16 = b => { let s=''; for(let i=0;i+1<b.length;i+=2) s+=String.fromCharCode(b[i]|(b[i+1]<<8)); return s.replace(/\0+$/,''); };
 function _ansi(b, cp){ try{ return new TextDecoder(cp||'windows-1252').decode(b).replace(/\0+$/,''); }catch(e){ return Array.from(b,c=>String.fromCharCode(c)).join('').replace(/\0+$/,''); } }
-const MSG_CP = {1250:'windows-1250',1251:'windows-1251',1252:'windows-1252',1253:'windows-1253',1254:'windows-1254',1255:'windows-1255',1256:'windows-1256',1257:'windows-1257',65001:'utf-8',28591:'iso-8859-1',28597:'iso-8859-7',20127:'us-ascii',932:'shift_jis',936:'gbk',949:'euc-kr',950:'big5'};
+const MSG_CP = new Proxy({}, {get:(_,n)=>cpLabel(+n)});
+/* Windows code page number -> TextDecoder label (null if unknown) */
+function cpLabel(n){
+  if(n>=1250 && n<=1258) return 'windows-'+n;
+  if(n>=28591 && n<=28606 && n!==28600 && n!==28602) return 'iso-8859-'+(n-28590);
+  return {65001:'utf-8',20127:'us-ascii',874:'windows-874',932:'shift_jis',936:'gbk',949:'euc-kr',950:'big5',54936:'gb18030',20866:'koi8-r',21866:'koi8-u',1200:'utf-16le',1201:'utf-16be',737:'ibm866',866:'ibm866',51932:'euc-jp',50220:'iso-2022-jp'}[n]||null;
+}
+/* RTF \fcharset -> code page (Greek fonts are 161 -> 1253) */
+const RTF_CHARSET_CP = {161:1253,162:1254,177:1255,178:1256,186:1257,163:1258,204:1251,238:1250,222:874,128:932,134:936,136:950,129:949,0:1252};
+/* HTML body bytes: the charset the HTML declares, then the message's code pages, then UTF-8 if valid */
+function decodeHtmlBytes(b, P, cp){
+  const head=Array.from(b.subarray(0,4096),c=>String.fromCharCode(c)).join('');
+  const m=/<meta[^>]+charset\s*=\s*["']?([\w:.-]+)/i.exec(head);
+  const tries=[m&&m[1], cpLabel(P['3FDE']), cpLabel(P['3FFD'])];
+  for(const t of tries){ if(!t) continue; try{ return new TextDecoder(t).decode(b).replace(/\0+$/,''); }catch(e){} }
+  try{ return new TextDecoder('utf-8',{fatal:true}).decode(b).replace(/\0+$/,''); }catch(e){}
+  return _ansi(b, cp);
+}
 /* properties of one storage: {id(hex4): value}; variable-size values from __substg1.0_ streams,
    fixed-size ones (numbers, dates, flags) from __properties_version1.0 */
 function msgProps(st, headerLen, cp){
@@ -88,7 +105,7 @@ function parseMsg(buf){
   const fromEmail=[str('5D01'),str('0C1F'),str('5D02'),str('0065')].find(isAddr) || ((/<([^>]+@[^>]+)>/.exec(fromHdr)||[])[1]) || (isAddr(fromHdr)?fromHdr:'');
   const fromName=str('0C1A')||str('0042')||fromHdr.replace(/<[^>]*>/,'').replace(/"/g,'').trim()||fromEmail;
   // body: plain text, HTML, or compressed RTF (which may carry HTML)
-  let html=null; if(P['1013']!==undefined) html = P['1013'] instanceof Uint8Array ? _ansi(P['1013'], MSG_CP[P['3FDE']]||(/charset=["']?utf-8/i.test(_ansi(P['1013'].subarray(0,2000)))?'utf-8':cp)) : String(P['1013']);
+  let html=null; if(P['1013']!==undefined) html = P['1013'] instanceof Uint8Array ? decodeHtmlBytes(P['1013'], P, cp) : String(P['1013']);
   let rtf=null; if(P['1009'] instanceof Uint8Array){ try{ rtf=rtfDecompress(P['1009']); }catch(e){} }
   let text=str('1000');
   if(!html && rtf && /\\fromhtml1/.test(rtf)) html=rtfToText(rtf,{html:true});
@@ -135,9 +152,12 @@ function rtfDecompress(b){
 /* RTF -> plain text; with {html:true} returns the HTML that Outlook wrapped in RTF (\fromhtml1) */
 function rtfToText(rtf, opts={}){
   const SKIP=new Set(['fonttbl','colortbl','stylesheet','info','pict','object','header','footer','headerl','headerr','footerl','footerr','xmlnstbl','listtable','listoverridetable','rsidtbl','generator','themedata','colorschememapping','latentstyles','datastore','pgdsctbl','mmathPr','fldinst']);
-  let out='', i=0, uc=1, skipBytes=0, cp='windows-1252'; const stack=[]; let st={skip:false, htmlrtf:false, tag:false};
+  let out='', i=0, uc=1, skipBytes=0, cp='windows-1252'; const stack=[]; let st={skip:false, htmlrtf:false, tag:false, font:null};
+  // font number -> code page, from the font table (e.g. {\f1\fswiss\fcharset161 Arial;} = Greek)
+  const fontCp={}; { const ft=rtf.indexOf('{\\fonttbl'); if(ft>=0){ const re=/\{\\f(\d+)[^{};]*?\\fcharset(\d+)/g; re.lastIndex=ft; const end=ft+200000; let m; while((m=re.exec(rtf)) && m.index<end){ const c=RTF_CHARSET_CP[+m[2]]; if(c) fontCp[m[1]]=cpLabel(c); } } }
+  const curCp=()=> (st.font!=null && fontCp[st.font]) || cp;
   const emit=s=>{ if(skipBytes>0){ skipBytes--; return; } if(st.skip) return; if(opts.html){ if(st.htmlrtf && !st.tag) return; } out+=s; };
-  const bytes=[]; const flush=()=>{ if(bytes.length){ const s=_ansi(Uint8Array.from(bytes), cp); bytes.length=0; if(!st.skip && !(opts.html&&st.htmlrtf&&!st.tag)) out+=s; } };
+  const bytes=[]; const flush=()=>{ if(bytes.length){ const s=_ansi(Uint8Array.from(bytes), curCp()); bytes.length=0; if(!st.skip && !(opts.html&&st.htmlrtf&&!st.tag)) out+=s; } };
   while(i<rtf.length){
     const c=rtf[i];
     if(c==='{'){ flush(); stack.push({...st, uc}); i++; continue; }
@@ -159,7 +179,8 @@ function rtfToText(rtf, opts={}){
       if(w==='htmlrtf'){ st.htmlrtf = arg!==0; continue; }
       if(w==='htmltag'){ st.tag=true; continue; }
       if(w==='uc'){ uc=arg||0; continue; }
-      if(w==='ansicpg'){ cp=MSG_CP[arg]||cp; continue; }
+      if(w==='ansicpg'){ cp=cpLabel(arg)||cp; continue; }
+      if(w==='f' && arg!=null){ st.font=String(arg); continue; }
       if(w==='u'){ let cc=arg; if(cc<0) cc+=65536; emit(String.fromCharCode(cc)); skipBytes=uc; continue; }
       if(opts.html && st.htmlrtf) continue;
       if(w==='par'||w==='line'||w==='sect'||w==='page') emit('\n');

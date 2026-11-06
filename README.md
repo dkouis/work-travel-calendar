@@ -72,6 +72,7 @@ FOLDERS
               8. WTC_SRV=<folder> WTC_MSG=<folder of .msg files> python3 tests/files.py   (54 checks: attachments,
                  .msg import, .ics as Meetings). Sample emails: git clone https://github.com/kenjiuno/msgreader
                  and use msgreader/MsgReaderTests/SampleFiles. Start PHP as in step 1.
+              9. node tests/msg_charset.js src/js/15-msg.js [sample folder]   (Greek / code pages in emails)
 
 TO CHANGE THE APP
   Edit files in src/, run python3 build.py, then upload site/index.php.

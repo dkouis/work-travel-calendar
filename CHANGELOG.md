@@ -3,6 +3,13 @@
 All notable changes to the Work & Travel Calendar. Dates are Athens time.
 "Upload" says which server files changed; the `data` folder (calendar, accounts, passwords) is never replaced.
 
+## [2.9.1] – 2026-11-07
+Upload: `index.php`
+
+### Fixed
+- Imported Outlook emails: Greek (and other non-Western) letters were garbled in the **Formatted** view and in the notes created from the email. The email's HTML text was read with the Western code page unless it was UTF-8. It now uses the character set the email declares (e.g. windows-1253, iso-8859-7), then the code page Outlook stored with the message, then UTF-8. Emails whose formatted text Outlook keeps inside RTF now follow the Greek fonts (`\fcharset161`) too.
+- Emails already imported keep their notes; open the attached original email again to see it correctly, or import it again for new notes.
+
 ## [2.9.0] – 2026-11-07 — Attachments and Outlook emails
 Upload: `api.php`, `index.php`
 
@@ -170,6 +177,7 @@ Upload: `index.php` and the installable-app files
 - Work status, location, flights and comments per day; Week and Month views; Trips report.
 - 1 Nov 2026: moved from a single HTML file to the PHP version (`index.php` + `api.php`) with server accounts, automatic saving and version history.
 
+[2.9.1]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.9.0]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.8.1]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.8.0]: https://github.com/dkouis/work-travel-calendar/commits/main
