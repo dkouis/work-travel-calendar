@@ -88,6 +88,7 @@ function bindTop(){
     if(a==='signout') signOut();
     if(a==='password') openChangePassword();
     if(!editable) return;
+    if(a==='msgimp') pickFile('.msg,application/vnd.ms-outlook',importMsgFile);
     if(a==='icsimp') pickFile('.ics,text/calendar',importIcsFile);
     if(a==='csvimp') pickFile('.csv,text/csv,.txt',importCsvFile);
     if(a==='owner') promptDlg('Calendar owner','Name shown in the header', data.owner||'').then(v=>{ if(v!=null){ data.owner=v.trim(); changed(); render(); } });
@@ -142,6 +143,7 @@ function newThing(kind, cat){
   if(kind==='day'){ cursor=fromKey(k); render(); return openDrawer(k); }
   if(kind==='template') return openTemplates();
   if(kind==='plan') return openPlanDay();
+  if(kind==='msgimp') return pickFile('.msg,application/vnd.ms-outlook',importMsgFile);
   if(kind==='icsimp') return pickFile('.ics,text/calendar',importIcsFile);
   if(kind==='csvimp') return pickFile('.csv,text/csv,.txt',importCsvFile);
 }

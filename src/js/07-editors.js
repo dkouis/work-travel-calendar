@@ -104,6 +104,7 @@ function openEventEditor(id, draft, occKey){
     ${mdEditorHTML('notes', e.notes, {ro, rows:7, placeholder:'Agenda, meeting notes… Markdown: **bold**, *italic*, # heading, - list, [link](https://…)'})}
     <label>Links</label><div class="list-edit" id="evLinks"></div>
     <label>Linked tasks</label><div class="list-edit" id="evTasks"></div>
+    ${attachEditorHTML()}
     <label>Tags</label><input type="text" name="tags" value="${esc(e.tags.join(', '))}" placeholder="e.g. council, budget" ${ro?'disabled':''}>
     <label>Privacy</label><label class="hint"><input type="checkbox" name="private" ${e.private?'checked':''} ${ro?'disabled':''}> Private — hide from viewers even in the Work calendar (needs the Personal passphrase)</label>
   </form>
@@ -154,6 +155,7 @@ function openEventEditor(id, draft, occKey){
       if(isPrivate(t)&&!ensurePrivReadySync()) return; touch(t); data.tasks.push(t); linked.push(t.id); changed(); drawLinked(); toast('Follow-up task created',{actions:[['Open',()=>openTaskEditor(t.id)]]}); };
   };
   drawLinked();
+  const fx=attachEditor(d, e.files, {ro, encrypt:()=>isPrivCal($('[name=calendarId]',F).value)||$('[name=private]',F).checked});
 
   function collect(){
     const v=n=>$(`[name=${n}]`,F).value;
@@ -164,14 +166,15 @@ function openEventEditor(id, draft, occKey){
     else { let s1=v('sd')+'T'+(v('st')||'09:00'), e1=(v('ed')||v('sd'))+'T'+(v('et')||v('st')||'10:00'); if(localDiffMin(s1,e1)<=0) e1=localAddMin(s1,S().defaultEventMin||60);
       o.tz=storeTz; o.start=tzConvert(s1,ACTIVE_TZ,storeTz); o.end=tzConvert(e1,ACTIVE_TZ,storeTz); }
     o.rrule=readRR(F); o.location=v('location').trim(); o.onlineLink=v('onlineLink').trim(); o.attendees=splitList(v('attendees')); o.notes=v('notes');
-    o.tags=splitList(v('tags')); o.private=$('[name=private]',F).checked; o.reminders=rems; o.links=links.filter(l=>l.url); o.linkedTaskIds=linked;
+    o.tags=splitList(v('tags')); o.private=$('[name=private]',F).checked; o.reminders=rems; o.links=links.filter(l=>l.url); o.linkedTaskIds=linked; o.files=fx.list;
     return o;
   }
   async function save(){
     if(!F.reportValidity()) return;
+    if(fx.busy()) return toast('Please wait until the files have been uploaded.');
     const o=collect();
     if(isPrivate(o) && !ensurePrivReadySync()) return;
-    if(isNew){ touch(o); data.events.push(o); changed(); closeDialog(d); renderAll(); toast(`Saved “${o.title}”`,{actions:[['Undo',undo]]}); return; }
+    if(isNew){ fx.commit(); touch(o); data.events.push(o); changed(); closeDialog(d); renderAll(); toast(`Saved “${o.title}”`,{actions:[['Undo',undo]]}); return; }
     let scope='all';
     if(orig.rrule && occKey){
       scope=await confirmDlg({title:'Change repeating event', html:'Apply your changes to:'},[['Only this one','this'],['This and following','following'],['All of them','all','primary'],['Cancel',null]]);
@@ -183,7 +186,7 @@ function openEventEditor(id, draft, occKey){
       if(o.start!==sv || o.end!==en) { ex.start=o.start; ex.end=o.end; }
       if(o.title!==tgt.title) ex.title=o.title; if(o.location!==tgt.location) ex.location=o.location;
       if(o.status==='cancelled' && tgt.status!=='cancelled') ex.status='cancelled'; else if(o.status!=='cancelled') delete ex.status;
-      tgt.exceptions[occKey]=ex; touch(tgt);
+      tgt.exceptions[occKey]=ex; tgt.files=o.files; touch(tgt);   // attachments belong to the whole series
     } else if(scope==='following' && occKey>tgt.start.slice(0,10)){
       const nu=clone(o); nu.id=uid('e'); delete nu.uid; nu.exceptions={}; for(const [k,x] of Object.entries(tgt.exceptions)) if(k>occKey) nu.exceptions[k]=x;
       tgt.rrule=Object.assign({},tgt.rrule,{until:keyAdd(occKey,-1),count:null}); for(const k of Object.keys(tgt.exceptions)) if(k>=occKey) delete tgt.exceptions[k];
@@ -198,7 +201,7 @@ function openEventEditor(id, draft, occKey){
       }
       Object.assign(tgt,o); touch(tgt);
     }
-    changed(); closeDialog(d); renderAll(); toast('Saved',{actions:[['Undo',undo]]});
+    fx.commit(); changed(); closeDialog(d); renderAll(); toast('Saved',{actions:[['Undo',undo]]});
   }
   const a=(n,fn)=>{ const b=$(`[data-a="${n}"]`,d); if(b) b.onclick=fn; };
   a('save',save); F.onsubmit=ev2=>{ ev2.preventDefault(); save(); };
@@ -235,6 +238,7 @@ function openTaskEditor(id, draft, opts={}){
     <div class="full hint">Repeating tasks need a due date; when you complete one, the next one is created.</div>
     <div class="sec">Reminders</div><div class="full" id="tkRem"></div>
     <div class="sec">Notes</div>${mdEditorHTML('notes', t.notes, {ro, rows:5, placeholder:'Details, links, steps… Markdown: **bold**, *italic*, - list, [link](https://…)'})}
+    ${attachEditorHTML()}
     <label>Tags</label><input type="text" name="tags" value="${esc(t.tags.join(', '))}" placeholder="e.g. drafting" ${ro?'disabled':''}>
     <label>Privacy</label><label class="hint"><input type="checkbox" name="private" ${t.private?'checked':''} ${ro?'disabled':''}> Private — hide from viewers (needs the Personal passphrase)</label>
   </form>
@@ -321,6 +325,7 @@ function openTaskEditor(id, draft, opts={}){
   const anchors=[['due','Before due'],['block','Before each block']];
   const drawRems=()=>{ $('#tkRem',d).innerHTML=ro?(rems.map(r=>`<div class="hint">🔔 ${r.anchor==='block'?'Block':'Due'}: ${esc((OFFSETS.find(o=>o[0]===+r.offsetMin)||[0,fmtDur(r.offsetMin)+' before'])[1])}</div>`).join('')||'<span class="hint">None</span>'):remFormHTML(rems,anchors); if(!ro) bindRems($('#tkRem',d),rems,anchors,drawRems); };
   drawRems();
+  const fx=attachEditor(d, t.files, {ro, encrypt:()=>isPrivCal(v('calendarId'))||$('[name=private]',F).checked});
 
   function collect(){
     const o=clone(t);
@@ -329,13 +334,15 @@ function openTaskEditor(id, draft, opts={}){
     o.priority=+v('priority'); o.dueDate=v('dueDate')||null; o.dueTime=o.dueDate?(v('dueTime')||null):null;
     if(o.dueTime){ const ttz=t.dueTime?(t.tz||ACTIVE_TZ):ACTIVE_TZ; const w=tzConvert(o.dueDate+'T'+o.dueTime,ACTIVE_TZ,ttz); o.tz=ttz; o.dueDate=w.slice(0,10); o.dueTime=w.slice(11,16); } o.estimateMin=est();
     o.blocks=blocks; o.checklist=cl.filter(c=>c.text.trim()); o.dependsOn=deps; o.rrule=o.dueDate?readRR(F):null; if(o.rrule && !o.rrStart) o.rrStart=o.dueDate;
-    o.reminders=rems; o.notes=v('notes'); o.tags=splitList(v('tags')); o.private=$('[name=private]',F).checked;
+    o.reminders=rems; o.notes=v('notes'); o.tags=splitList(v('tags')); o.private=$('[name=private]',F).checked; o.files=fx.list;
     return o;
   }
   function save(){
     if(!F.reportValidity()) return false;
+    if(fx.busy()){ toast('Please wait until the files have been uploaded.'); return false; }
     const o=collect();
     if(isPrivate(o) && !ensurePrivReadySync()) return false;
+    fx.commit();
     const becameDone = o.status==='done' && (isNew || isOpen(orig));
     if(isNew){ if(becameDone) o.status='todo'; touch(o); data.tasks.push(o); if(opts.linkEvent){ const e=ev(opts.linkEvent); if(e){ e.linkedTaskIds.push(o.id); touch(e); } } }
     else { if(becameDone) o.status=orig.status; Object.assign(orig,o); touch(orig); }
@@ -376,17 +383,21 @@ function openProjectEditor(id, draft){
     <label>Remind</label><label class="hint"><input type="checkbox" name="remind" ${p.reminders&&p.reminders.length?'checked':''} ${ro?'disabled':''}> 1 day before the project due date</label>
     <label></label><label class="hint"><input type="checkbox" name="pinned" ${p.pinned?'checked':''} ${ro?'disabled':''}> Pin to the top of the list</label>
     <label>Description</label><textarea name="description" rows="3" ${ro?'disabled':''}>${esc(p.description)}</textarea>
+    ${attachEditorHTML()}
   </form>
   <div class="dacts">${!isNew&&editable?'<button data-a="del" class="danger">Delete…</button><button data-a="dup">Duplicate</button><button data-a="tpl">Save as template</button><button data-a="arch">'+(p.status==='archived'?'Unarchive':'Archive')+'</button>':''}
     <span class="sp"></span><button data-close>${ro?'Close':'Cancel'}</button>${editable?'<button class="primary" data-a="save">Save</button>':''}</div>`,{size:'mid',focus:'[name=name]'});
   const F=$('form',d), v=n=>$(`[name=${n}]`,F).value;
   $$('[data-col]',d).forEach(b=>b.onclick=()=>{ $('[name=color]',F).value=b.dataset.col; });
+  const fx=attachEditor(d, p.files, {ro, encrypt:()=>isPrivCal(v('calendarId'))});
   let icon=p.icon; $$('[data-ic]',d).forEach(b=>b.onclick=()=>{ icon=b.dataset.ic; $$('[data-ic]',d).forEach(x=>x.classList.toggle('on',x===b)); });
-  function collect(){ return Object.assign(clone(p),{name:v('name').trim()||'Untitled project', calendarId:v('calendarId'), color:v('color'), icon, status:v('status'), startDate:v('startDate')||null, dueDate:v('dueDate')||null, budgetHours:v('budgetHours')?+v('budgetHours'):null, parentId:v('parentId')||null, tripFrom:v('tripFrom')||null, tripTo:v('tripTo')||null, pinned:$('[name=pinned]',F).checked, description:v('description'), reminders:$('[name=remind]',F).checked?[{offsetMin:1440,channel:'popup'}]:[]}); }
+  function collect(){ return Object.assign(clone(p),{name:v('name').trim()||'Untitled project', calendarId:v('calendarId'), color:v('color'), icon, status:v('status'), startDate:v('startDate')||null, dueDate:v('dueDate')||null, budgetHours:v('budgetHours')?+v('budgetHours'):null, parentId:v('parentId')||null, tripFrom:v('tripFrom')||null, tripTo:v('tripTo')||null, pinned:$('[name=pinned]',F).checked, description:v('description'), reminders:$('[name=remind]',F).checked?[{offsetMin:1440,channel:'popup'}]:[], files:fx.list}); }
   function save(){
     if(!F.reportValidity()) return;
+    if(fx.busy()) return toast('Please wait until the files have been uploaded.');
     const o=collect();
     if(isPrivCal(o.calendarId) && !ensurePrivReadySync()) return;
+    fx.commit();
     if(isNew){ touch(o); data.projects.push(o); }
     else { const calChanged=orig.calendarId!==o.calendarId; Object.assign(orig,o); touch(orig);
       if(calChanged) for(const it of [...data.events,...data.tasks]) if(it.projectId===orig.id){ it.calendarId=o.calendarId; touch(it); } }
@@ -465,6 +476,7 @@ function showProjectPage(id, page){
       <span class="tag">${esc(c.name)}</span><span class="tag">${PROJ_STATUS[p.status]}</span>${editable?'<button data-pedit>✎ Edit</button>':''}<button data-prep>📊 Report</button><button class="ghost" data-close>✕</button></div>
       <div class="pp-head">${p.dueDate?`<span class="hint">Due ${esc(fmtShort(fromKey(p.dueDate)))}</span>`:''}<div style="flex:1;min-width:180px"><div class="hint">${st.done} of ${st.done+st.open} tasks done</div><div class="progress"><i style="width:${Math.round(st.progress*100)}%"></i></div></div>${budget}</div>
       ${p.description?`<p class="hint">${esc(p.description)}</p>`:''}
+      ${fileRefs(p).length?`<div class="flist pp-files">${filesListHTML(fileRefs(p))}</div>`:''}
       <div class="tabs">${[['tasks','Tasks'],['timeline','Timeline'],['stats','Stats']].map(([k,l])=>`<button data-ptab="${k}" class="${ppTab===k?'on':''}">${l}</button>`).join('')}</div>${body}`;
     const B=box();
     $$('[data-close]',B).forEach(b=>b.onclick=close);
@@ -473,7 +485,7 @@ function showProjectPage(id, page){
     const pe=$('[data-pedit]',B); if(pe) pe.onclick=()=>openProjectEditor(id);
     $('[data-prep]',B).onclick=()=>openReports('project',{projectId:id});
     $$('[data-pnew]',B).forEach(b=>b.onclick=()=> b.dataset.pnew==='task'?openTaskEditor(null,newTask({projectId:id,calendarId:p.calendarId})):openEventEditor(null,newEvent({projectId:id,calendarId:p.calendarId})));
-    bindTaskRows(B);
+    bindTaskRows(B); bindFilesList(B, fileRefs(p));
     $$('[data-occ]',B).forEach(r=>r.onclick=()=>openOccPopover(r.dataset.occ,r.dataset.oc,r.dataset.ok,r));
     $$('.bcol',B).forEach(c=>{ c.addEventListener('dragover',e=>{ if(editable){ e.preventDefault(); c.classList.add('dragover'); } }); c.addEventListener('dragleave',()=>c.classList.remove('dragover'));
       c.addEventListener('drop',e=>{ c.classList.remove('dragover'); e.preventDefault(); const t=task(e.dataTransfer.getData('text/x-task')); if(t) setTaskStatus(t,c.dataset.status); }); });

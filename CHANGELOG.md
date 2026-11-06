@@ -3,6 +3,31 @@
 All notable changes to the Work & Travel Calendar. Dates are Athens time.
 "Upload" says which server files changed; the `data` folder (calendar, accounts, passwords) is never replaced.
 
+## [2.9.0] – 2026-11-07 — Attachments and Outlook emails
+Upload: `api.php`, `index.php`
+
+### Added
+- **Attachments** for every event type (meeting, appointment, deadline, travel, social, other), tasks and projects:
+  - "Attachments" section in the edit window (popup and edit tab): **📎 Add files…** with several files at once, or drag and drop onto the window; progress bar per file.
+  - Per file: **open / preview** (pictures, PDF, text, audio/video, Outlook emails), **⬇ download**, **✎ rename** (keeps the extension), **⇄ replace**, **✕ remove**.
+  - Shown in the event details tab, the calendar popup and the project page; tasks show 📎 with the number of files.
+  - Duplicating or converting an item keeps its attachments; repeating events share them across the series.
+  - Viewers can open and download attachments, not change them.
+- Server storage in `data/files` (created automatically): files are stored as guarded `.php` files that cannot be opened from a browser and are only sent to signed-in accounts, always as a download. Uploads travel in 1 MB pieces (host upload limits do not matter); up to 50 MB per file.
+- Files of **Personal** items are encrypted in the browser (AES-GCM, a key per file kept inside the encrypted Personal data).
+- Clean-up: files uploaded in an edit window that is then cancelled are deleted at once; files no longer attached anywhere (also not in the Trash) are deleted automatically after 7 days, so Undo and the Trash keep working. **⚙ Settings → Data** shows the space used and has **🧹 Clean up now**.
+- **Import Outlook email (.msg, Unicode)** from ＋ Add, the ⋯ menu, or by dropping the file on the calendar:
+  - Preview: subject, from, to, cc, date, importance, the text (formatted in a safe frame without scripts or remote pictures, or plain text) and the attachments.
+  - Choose what to create: **Task** (default) or an event type (Meeting, Appointment, Deadline, Travel, Social, Other); edit title, calendar, project, due date and priority or date and time.
+  - Notes get sender, recipients, date and the email text in Markdown; tag `email`; sender and recipients become attendees of events.
+  - Attachments are added (pictures inside the text unticked); the original email is attached too and opens again as an email preview, with "Add as a new task or event…".
+  - **Continue to all details…** opens the full edit window before anything is saved (where the type can still be changed); **Add now** saves straight away. Cancelling the edit window removes the uploaded files.
+  - Reads plain-text, HTML and RTF emails (including compressed RTF) in the browser; nothing is sent elsewhere.
+
+### Changed
+- Events imported from calendar files (.ics) are created as **Meetings** (were "Other"). The import window offers to change events imported earlier as "Other" to Meeting.
+- Archive leaves items with attachments in the calendar.
+
 ## [2.8.1] – 2026-11-06
 Upload: `index.php`
 
@@ -145,6 +170,7 @@ Upload: `index.php` and the installable-app files
 - Work status, location, flights and comments per day; Week and Month views; Trips report.
 - 1 Nov 2026: moved from a single HTML file to the PHP version (`index.php` + `api.php`) with server accounts, automatic saving and version history.
 
+[2.9.0]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.8.1]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.8.0]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.7.0]: https://github.com/dkouis/work-travel-calendar/commits/main

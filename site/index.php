@@ -5,7 +5,7 @@ header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'");
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; frame-src 'self' blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'");
 ?>
 <!doctype html>
 <html lang="en">
@@ -705,6 +705,37 @@ body.detail #detail:has(.dlg.page){max-width:none;margin:0;padding:0}
 #viewBtn{min-width:96px;text-align:left;white-space:nowrap}
 .topbar .nav h1{white-space:nowrap}
 @media (max-width:700px){ #addMenu{position:fixed;left:8px;right:8px;top:calc(var(--topH,58px) - 4px);width:auto;max-height:80vh;overflow:auto} }
+/* attachments */
+.att{display:flex;flex-direction:column;gap:6px}
+.flist{display:flex;flex-direction:column;gap:2px}
+.fitem{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:3px 6px;border-radius:6px}
+.fitem:hover{background:var(--hover,rgba(127,127,127,.08))}
+.fitem>a{word-break:break-all;text-decoration:none}
+.fitem>a:hover{text-decoration:underline}
+.fbtns{margin-left:auto;display:flex;gap:2px}
+.fbtn{padding:2px 6px;min-width:0}
+.fitem.up{opacity:.85}
+.fbar{flex:1;min-width:80px;max-width:220px;height:6px;border-radius:3px;background:var(--line,#ddd);overflow:hidden}
+.fbar i{display:block;height:100%;background:var(--tele,#2e7d32);transition:width .2s}
+.fdrop{border:1.5px dashed var(--line,#ccc);border-radius:8px;padding:10px;text-align:center;color:var(--muted,#666)}
+.fdrop.over{border-color:var(--tele,#2e7d32);background:rgba(46,125,50,.06)}
+.flistp{flex-direction:column;align-items:stretch;max-height:120px;overflow:auto}
+.pp-files{margin:6px 0}
+.fprev{min-height:120px}
+.fframe{width:100%;height:70vh;border:1px solid var(--line,#ddd);border-radius:6px;background:#fff}
+.ftext{white-space:pre-wrap;word-break:break-word;max-height:65vh;overflow:auto;font:13px/1.45 ui-monospace,Consolas,monospace;background:var(--bg2,rgba(127,127,127,.06));padding:10px;border-radius:6px;margin:0}
+/* email import */
+.mailimp{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
+.mailprev{display:flex;flex-direction:column;gap:8px;min-width:0}
+.mailhd{display:flex;flex-direction:column;gap:2px;font-size:13px;border-bottom:1px solid var(--line,#ddd);padding-bottom:8px}
+.mailhd b{display:inline-block;min-width:44px;color:var(--muted,#666);font-weight:500}
+.mailsubj{font-size:16px;font-weight:600;margin-bottom:4px}
+.mailatt{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.mailseg{align-self:flex-start}
+.mailbody .ftext{max-height:52vh}
+.mailframe{width:100%;height:52vh;border:1px solid var(--line,#ddd);border-radius:6px;background:#fff}
+.mailform .list-edit label{display:block}
+@media (max-width:820px){ .mailimp{grid-template-columns:1fr} .mailframe,.mailbody .ftext{height:auto;max-height:40vh} .mailframe{height:40vh} }
 </style>
 </head>
 <body class="locked">
@@ -797,6 +828,7 @@ body.detail #detail:has(.dlg.page){max-width:none;margin:0;padding:0}
       <hr>
       <button data-new="template">🧩 From a template…</button>
       <button data-new="plan">🗓 Plan my day…</button>
+      <button data-new="msgimp">📧 Import email (.msg)…</button>
       <button data-new="icsimp">📥 Import calendar file (.ics)…</button>
       <button data-new="csvimp">📥 Import tasks (CSV)…</button>
     </div>
@@ -826,6 +858,7 @@ body.detail #detail:has(.dlg.page){max-width:none;margin:0;padding:0}
       <button data-act="help">⌨ Keyboard shortcuts (?)</button>
       <hr>
       <button data-act="icsexp">📤 Export calendar file (.ics)…</button>
+      <button data-act="msgimp" data-ed>📧 Import Outlook email (.msg)…</button>
       <button data-act="icsimp" data-ed>📥 Import calendar file (.ics)…</button>
       <button data-act="csvimp" data-ed>📥 Import tasks from CSV…</button>
       <hr data-ed>
@@ -916,7 +949,7 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 const API = 'api.php';
 const POLL_MS = 60000;
 const SCHEMA = 2;
-const APP_VERSION = '2.8.1';   // see CHANGELOG.md
+const APP_VERSION = '2.9.0';   // see CHANGELOG.md
 const CATEGORIES = {meeting:'👥 Meeting', appointment:'📌 Appointment', deadline:'⏰ Deadline', travel:'🧳 Travel', social:'🎉 Social', other:'• Other'};
 const CAT_ICON = {meeting:'👥', appointment:'📌', deadline:'⏰', travel:'🧳', social:'🎉', other:''};
 const TASK_STATUS = {todo:'To do', 'in-progress':'In progress', waiting:'Waiting', done:'Done', cancelled:'Cancelled'};
@@ -1122,7 +1155,7 @@ function normalize(raw){
   if(wasV1 && !d.templates.length) d.templates = seedTemplates();
   if(!d.private || typeof d.private!=='object' || Array.isArray(d.private)) d.private = null;
   d.busy = arr(d.busy);
-  for(const e of d.events){ e.exceptions = obj(e.exceptions); e.reminders = arr(e.reminders); e.tags = arr(e.tags); e.attendees=arr(e.attendees); e.links=arr(e.links); e.linkedTaskIds=arr(e.linkedTaskIds); }
+  for(const e of d.events){ e.exceptions = obj(e.exceptions); e.reminders = arr(e.reminders); e.tags = arr(e.tags); e.attendees=arr(e.attendees); e.links=arr(e.links); e.linkedTaskIds=arr(e.linkedTaskIds); e.files=arr(e.files); }
   for(const t of d.tasks){ t.blocks = arr(t.blocks); t.checklist = arr(t.checklist); t.reminders = arr(t.reminders); t.tags = arr(t.tags); t.dependsOn = arr(t.dependsOn); }
   // purge trash older than 30 days
   const cut = Date.now()-30*864e5;
@@ -1237,7 +1270,8 @@ function mergePriv(p){
 }
 function normalizeItems(){
   for(const e of data.events){ e.exceptions=obj(e.exceptions); e.reminders=arr(e.reminders); e.tags=arr(e.tags); e.attendees=arr(e.attendees); e.links=arr(e.links); e.linkedTaskIds=arr(e.linkedTaskIds); }
-  for(const t of data.tasks){ t.blocks=arr(t.blocks); t.checklist=arr(t.checklist); t.reminders=arr(t.reminders); t.tags=arr(t.tags); t.dependsOn=arr(t.dependsOn); }
+  for(const t of data.tasks){ t.blocks=arr(t.blocks); t.checklist=arr(t.checklist); t.reminders=arr(t.reminders); t.tags=arr(t.tags); t.dependsOn=arr(t.dependsOn); t.files=arr(t.files); }
+  for(const p of data.projects) p.files=arr(p.files);
 }
 async function tryAutoUnlock(){
   if(!data.private){ privLocked=false; return; }
@@ -1688,6 +1722,7 @@ async function enter(me){
   document.body.classList.remove('locked');
   afterModeChange();
   startReminders();
+  maybeFilesGc();
   if(DETAIL) return;
   setTimeout(tzTravelPrompt, 2500);
   routeMainHash();
@@ -1787,7 +1822,7 @@ function closeDialog(d){
   d = d || _dlgStack[_dlgStack.length-1]; if(!d) return;
   if(d._page){ closeEditPage(d); return; }
   _dlgStack=_dlgStack.filter(x=>x!==d); if(d._refresh) _panelRefreshers.delete(d._refresh);
-  d.remove(); if(d._onclose) d._onclose();
+  d.remove(); if(d._filesCtl) d._filesCtl.finish(); if(d._onclose) d._onclose();
 }
 function topDialog(){ return _dlgStack[_dlgStack.length-1]; }
 function confirmDlg(msg, buttons){ // buttons: [[label,value,cls]]
@@ -1964,7 +1999,7 @@ function taskRowHTML(t, opts={}){
     <button class="check ${isOpen(t)?'':'on'} pk" data-done="${t.id}" title="${isOpen(t)?'Mark done':'Mark not done'}" aria-label="Done" ${editable?'':'disabled'}>${isOpen(t)?'':'✓'}</button>
     <span class="tt">${bl?'🔒 ':''}${esc(t.title)}</span>
     <span>${t.priority&&t.priority<=2?`<span class="pri p${t.priority}">P${t.priority}</span>`:''}</span>
-    <div class="meta">${due}${p?`<span>${esc(p.icon||'')} ${esc(p.name)}</span>`:''}${t.estimateMin?`<span class="${us?'warn':''}" title="${us?'Not enough time scheduled before the due date':''}">⏱ ${fmtH(plan)} of ${fmtH(t.estimateMin)}${us?' ⚠':''}</span>`:(plan?`<span>⏱ ${fmtH(plan)}</span>`:'')}${t.checklist.length?`<span>☑ ${t.checklist.filter(c=>c.done).length}/${t.checklist.length}</span>`:''}${t.rrule?'<span>🔁</span>':''}${isPrivate(t)?'<span>🔒</span>':''}${opts.sel&&editable?`<label style="margin-left:auto" onclick="event.stopPropagation()"><input type="checkbox" data-tsel="${t.id}" ${selTasks.has(t.id)?'checked':''}> select</label>`:''}</div>
+    <div class="meta">${due}${p?`<span>${esc(p.icon||'')} ${esc(p.name)}</span>`:''}${t.estimateMin?`<span class="${us?'warn':''}" title="${us?'Not enough time scheduled before the due date':''}">⏱ ${fmtH(plan)} of ${fmtH(t.estimateMin)}${us?' ⚠':''}</span>`:(plan?`<span>⏱ ${fmtH(plan)}</span>`:'')}${t.checklist.length?`<span>☑ ${t.checklist.filter(c=>c.done).length}/${t.checklist.length}</span>`:''}${t.rrule?'<span>🔁</span>':''}${fileRefs(t).length?`<span title="Attachments">📎 ${fileRefs(t).length}</span>`:''}${isPrivate(t)?'<span>🔒</span>':''}${opts.sel&&editable?`<label style="margin-left:auto" onclick="event.stopPropagation()"><input type="checkbox" data-tsel="${t.id}" ${selTasks.has(t.id)?'checked':''}> select</label>`:''}</div>
   </div>`;
 }
 function dueLabel(t){
@@ -2791,13 +2826,13 @@ async function deleteOcc(id, oc, kind){
 }
 function convertItem(it){
   if(it.type==='event'){
-    const t=newTask({title:it.title, calendarId:it.calendarId, projectId:it.projectId, notes:it.notes, tags:it.tags, private:it.private});
+    const t=newTask({title:it.title, calendarId:it.calendarId, projectId:it.projectId, notes:it.notes, tags:it.tags, private:it.private, files:arr(it.files)});
     if(!it.allDay){ t.blocks=[{id:uid('b'), start:it.start, end:it.end, tz:it.tz, done:false}]; t.estimateMin=localDiffMin(it.start,it.end); t.dueDate=it.start.slice(0,10); }
     else t.dueDate=it.start.slice(0,10);
     removeItem(it,true); touch(t); data.tasks.push(t); changed(); renderAll(); toast('Converted to a task',{actions:[['Undo',undo]]}); return t;
   }
   const b=it.blocks[0]; const k=b?b.start.slice(0,10):(it.dueDate||todayKey());
-  const e=newEvent({title:it.title, calendarId:it.calendarId, projectId:it.projectId, notes:it.notes, tags:it.tags, private:it.private, category:'other'});
+  const e=newEvent({title:it.title, calendarId:it.calendarId, projectId:it.projectId, notes:it.notes, tags:it.tags, private:it.private, category:'other', files:arr(it.files)});
   if(b){ e.start=b.start; e.end=b.end; e.tz=b.tz; } else if(it.dueDate){ e.allDay=true; e.start=k; e.end=k; }
   removeItem(it,true); touch(e); data.events.push(e); changed(); renderAll(); toast('Converted to an event',{actions:[['Undo',undo]]}); return e;
 }
@@ -2827,6 +2862,7 @@ function openOccPopover(id, oc, kind, anchorEl){
     ${it.attendees&&it.attendees.length?`<div class="ln">👥 ${esc(it.attendees.join(', '))}</div>`:''}
     ${conf?`<div class="warnbox" style="margin-top:6px">⚠ ${conf.map(esc).join('<br>')}</div>`:''}
     ${it.notes?`<div class="md" style="margin-top:6px;max-height:140px;overflow:auto">${md(it.notes)}</div>`:''}
+    ${fileRefs(it).length?`<div class="ln flistp">${filesListHTML(fileRefs(it))}</div>`:''}
     <div class="acts">
       ${editable?`<button class="primary" data-a="edit">✎ Edit</button>`:`<button data-a="edit">Details</button>`}
       ${editable&&isTask?`<button data-a="bdone">${o.done?'Not done':'✓ Block done'}</button>${isOpen(it)?'<button data-a="tdone">Task done</button>':''}`:''}
@@ -2839,6 +2875,7 @@ function openOccPopover(id, oc, kind, anchorEl){
   const r=anchorEl?anchorEl.getBoundingClientRect():{left:innerWidth/2,right:innerWidth/2,top:100};
   placePop(p,{left:r.right+6,right:r.left-6,top:r.top});
   $('[data-x]',p).onclick=closePopover;
+  bindFilesList(p, fileRefs(it));
   const act=(a,fn)=>{ const b=$(`[data-a="${a}"]`,p); if(b) b.onclick=()=>{ closePopover(); fn(); }; };
   act('edit',()=> it.type==='event' ? openEventEditor(id,null,oc) : openTaskEditor(id));
   act('bdone',()=>toggleBlockDone(id,oc));
@@ -3243,6 +3280,7 @@ function openEventEditor(id, draft, occKey){
     ${mdEditorHTML('notes', e.notes, {ro, rows:7, placeholder:'Agenda, meeting notes… Markdown: **bold**, *italic*, # heading, - list, [link](https://…)'})}
     <label>Links</label><div class="list-edit" id="evLinks"></div>
     <label>Linked tasks</label><div class="list-edit" id="evTasks"></div>
+    ${attachEditorHTML()}
     <label>Tags</label><input type="text" name="tags" value="${esc(e.tags.join(', '))}" placeholder="e.g. council, budget" ${ro?'disabled':''}>
     <label>Privacy</label><label class="hint"><input type="checkbox" name="private" ${e.private?'checked':''} ${ro?'disabled':''}> Private — hide from viewers even in the Work calendar (needs the Personal passphrase)</label>
   </form>
@@ -3293,6 +3331,7 @@ function openEventEditor(id, draft, occKey){
       if(isPrivate(t)&&!ensurePrivReadySync()) return; touch(t); data.tasks.push(t); linked.push(t.id); changed(); drawLinked(); toast('Follow-up task created',{actions:[['Open',()=>openTaskEditor(t.id)]]}); };
   };
   drawLinked();
+  const fx=attachEditor(d, e.files, {ro, encrypt:()=>isPrivCal($('[name=calendarId]',F).value)||$('[name=private]',F).checked});
 
   function collect(){
     const v=n=>$(`[name=${n}]`,F).value;
@@ -3303,14 +3342,15 @@ function openEventEditor(id, draft, occKey){
     else { let s1=v('sd')+'T'+(v('st')||'09:00'), e1=(v('ed')||v('sd'))+'T'+(v('et')||v('st')||'10:00'); if(localDiffMin(s1,e1)<=0) e1=localAddMin(s1,S().defaultEventMin||60);
       o.tz=storeTz; o.start=tzConvert(s1,ACTIVE_TZ,storeTz); o.end=tzConvert(e1,ACTIVE_TZ,storeTz); }
     o.rrule=readRR(F); o.location=v('location').trim(); o.onlineLink=v('onlineLink').trim(); o.attendees=splitList(v('attendees')); o.notes=v('notes');
-    o.tags=splitList(v('tags')); o.private=$('[name=private]',F).checked; o.reminders=rems; o.links=links.filter(l=>l.url); o.linkedTaskIds=linked;
+    o.tags=splitList(v('tags')); o.private=$('[name=private]',F).checked; o.reminders=rems; o.links=links.filter(l=>l.url); o.linkedTaskIds=linked; o.files=fx.list;
     return o;
   }
   async function save(){
     if(!F.reportValidity()) return;
+    if(fx.busy()) return toast('Please wait until the files have been uploaded.');
     const o=collect();
     if(isPrivate(o) && !ensurePrivReadySync()) return;
-    if(isNew){ touch(o); data.events.push(o); changed(); closeDialog(d); renderAll(); toast(`Saved “${o.title}”`,{actions:[['Undo',undo]]}); return; }
+    if(isNew){ fx.commit(); touch(o); data.events.push(o); changed(); closeDialog(d); renderAll(); toast(`Saved “${o.title}”`,{actions:[['Undo',undo]]}); return; }
     let scope='all';
     if(orig.rrule && occKey){
       scope=await confirmDlg({title:'Change repeating event', html:'Apply your changes to:'},[['Only this one','this'],['This and following','following'],['All of them','all','primary'],['Cancel',null]]);
@@ -3322,7 +3362,7 @@ function openEventEditor(id, draft, occKey){
       if(o.start!==sv || o.end!==en) { ex.start=o.start; ex.end=o.end; }
       if(o.title!==tgt.title) ex.title=o.title; if(o.location!==tgt.location) ex.location=o.location;
       if(o.status==='cancelled' && tgt.status!=='cancelled') ex.status='cancelled'; else if(o.status!=='cancelled') delete ex.status;
-      tgt.exceptions[occKey]=ex; touch(tgt);
+      tgt.exceptions[occKey]=ex; tgt.files=o.files; touch(tgt);   // attachments belong to the whole series
     } else if(scope==='following' && occKey>tgt.start.slice(0,10)){
       const nu=clone(o); nu.id=uid('e'); delete nu.uid; nu.exceptions={}; for(const [k,x] of Object.entries(tgt.exceptions)) if(k>occKey) nu.exceptions[k]=x;
       tgt.rrule=Object.assign({},tgt.rrule,{until:keyAdd(occKey,-1),count:null}); for(const k of Object.keys(tgt.exceptions)) if(k>=occKey) delete tgt.exceptions[k];
@@ -3337,7 +3377,7 @@ function openEventEditor(id, draft, occKey){
       }
       Object.assign(tgt,o); touch(tgt);
     }
-    changed(); closeDialog(d); renderAll(); toast('Saved',{actions:[['Undo',undo]]});
+    fx.commit(); changed(); closeDialog(d); renderAll(); toast('Saved',{actions:[['Undo',undo]]});
   }
   const a=(n,fn)=>{ const b=$(`[data-a="${n}"]`,d); if(b) b.onclick=fn; };
   a('save',save); F.onsubmit=ev2=>{ ev2.preventDefault(); save(); };
@@ -3374,6 +3414,7 @@ function openTaskEditor(id, draft, opts={}){
     <div class="full hint">Repeating tasks need a due date; when you complete one, the next one is created.</div>
     <div class="sec">Reminders</div><div class="full" id="tkRem"></div>
     <div class="sec">Notes</div>${mdEditorHTML('notes', t.notes, {ro, rows:5, placeholder:'Details, links, steps… Markdown: **bold**, *italic*, - list, [link](https://…)'})}
+    ${attachEditorHTML()}
     <label>Tags</label><input type="text" name="tags" value="${esc(t.tags.join(', '))}" placeholder="e.g. drafting" ${ro?'disabled':''}>
     <label>Privacy</label><label class="hint"><input type="checkbox" name="private" ${t.private?'checked':''} ${ro?'disabled':''}> Private — hide from viewers (needs the Personal passphrase)</label>
   </form>
@@ -3460,6 +3501,7 @@ function openTaskEditor(id, draft, opts={}){
   const anchors=[['due','Before due'],['block','Before each block']];
   const drawRems=()=>{ $('#tkRem',d).innerHTML=ro?(rems.map(r=>`<div class="hint">🔔 ${r.anchor==='block'?'Block':'Due'}: ${esc((OFFSETS.find(o=>o[0]===+r.offsetMin)||[0,fmtDur(r.offsetMin)+' before'])[1])}</div>`).join('')||'<span class="hint">None</span>'):remFormHTML(rems,anchors); if(!ro) bindRems($('#tkRem',d),rems,anchors,drawRems); };
   drawRems();
+  const fx=attachEditor(d, t.files, {ro, encrypt:()=>isPrivCal(v('calendarId'))||$('[name=private]',F).checked});
 
   function collect(){
     const o=clone(t);
@@ -3468,13 +3510,15 @@ function openTaskEditor(id, draft, opts={}){
     o.priority=+v('priority'); o.dueDate=v('dueDate')||null; o.dueTime=o.dueDate?(v('dueTime')||null):null;
     if(o.dueTime){ const ttz=t.dueTime?(t.tz||ACTIVE_TZ):ACTIVE_TZ; const w=tzConvert(o.dueDate+'T'+o.dueTime,ACTIVE_TZ,ttz); o.tz=ttz; o.dueDate=w.slice(0,10); o.dueTime=w.slice(11,16); } o.estimateMin=est();
     o.blocks=blocks; o.checklist=cl.filter(c=>c.text.trim()); o.dependsOn=deps; o.rrule=o.dueDate?readRR(F):null; if(o.rrule && !o.rrStart) o.rrStart=o.dueDate;
-    o.reminders=rems; o.notes=v('notes'); o.tags=splitList(v('tags')); o.private=$('[name=private]',F).checked;
+    o.reminders=rems; o.notes=v('notes'); o.tags=splitList(v('tags')); o.private=$('[name=private]',F).checked; o.files=fx.list;
     return o;
   }
   function save(){
     if(!F.reportValidity()) return false;
+    if(fx.busy()){ toast('Please wait until the files have been uploaded.'); return false; }
     const o=collect();
     if(isPrivate(o) && !ensurePrivReadySync()) return false;
+    fx.commit();
     const becameDone = o.status==='done' && (isNew || isOpen(orig));
     if(isNew){ if(becameDone) o.status='todo'; touch(o); data.tasks.push(o); if(opts.linkEvent){ const e=ev(opts.linkEvent); if(e){ e.linkedTaskIds.push(o.id); touch(e); } } }
     else { if(becameDone) o.status=orig.status; Object.assign(orig,o); touch(orig); }
@@ -3515,17 +3559,21 @@ function openProjectEditor(id, draft){
     <label>Remind</label><label class="hint"><input type="checkbox" name="remind" ${p.reminders&&p.reminders.length?'checked':''} ${ro?'disabled':''}> 1 day before the project due date</label>
     <label></label><label class="hint"><input type="checkbox" name="pinned" ${p.pinned?'checked':''} ${ro?'disabled':''}> Pin to the top of the list</label>
     <label>Description</label><textarea name="description" rows="3" ${ro?'disabled':''}>${esc(p.description)}</textarea>
+    ${attachEditorHTML()}
   </form>
   <div class="dacts">${!isNew&&editable?'<button data-a="del" class="danger">Delete…</button><button data-a="dup">Duplicate</button><button data-a="tpl">Save as template</button><button data-a="arch">'+(p.status==='archived'?'Unarchive':'Archive')+'</button>':''}
     <span class="sp"></span><button data-close>${ro?'Close':'Cancel'}</button>${editable?'<button class="primary" data-a="save">Save</button>':''}</div>`,{size:'mid',focus:'[name=name]'});
   const F=$('form',d), v=n=>$(`[name=${n}]`,F).value;
   $$('[data-col]',d).forEach(b=>b.onclick=()=>{ $('[name=color]',F).value=b.dataset.col; });
+  const fx=attachEditor(d, p.files, {ro, encrypt:()=>isPrivCal(v('calendarId'))});
   let icon=p.icon; $$('[data-ic]',d).forEach(b=>b.onclick=()=>{ icon=b.dataset.ic; $$('[data-ic]',d).forEach(x=>x.classList.toggle('on',x===b)); });
-  function collect(){ return Object.assign(clone(p),{name:v('name').trim()||'Untitled project', calendarId:v('calendarId'), color:v('color'), icon, status:v('status'), startDate:v('startDate')||null, dueDate:v('dueDate')||null, budgetHours:v('budgetHours')?+v('budgetHours'):null, parentId:v('parentId')||null, tripFrom:v('tripFrom')||null, tripTo:v('tripTo')||null, pinned:$('[name=pinned]',F).checked, description:v('description'), reminders:$('[name=remind]',F).checked?[{offsetMin:1440,channel:'popup'}]:[]}); }
+  function collect(){ return Object.assign(clone(p),{name:v('name').trim()||'Untitled project', calendarId:v('calendarId'), color:v('color'), icon, status:v('status'), startDate:v('startDate')||null, dueDate:v('dueDate')||null, budgetHours:v('budgetHours')?+v('budgetHours'):null, parentId:v('parentId')||null, tripFrom:v('tripFrom')||null, tripTo:v('tripTo')||null, pinned:$('[name=pinned]',F).checked, description:v('description'), reminders:$('[name=remind]',F).checked?[{offsetMin:1440,channel:'popup'}]:[], files:fx.list}); }
   function save(){
     if(!F.reportValidity()) return;
+    if(fx.busy()) return toast('Please wait until the files have been uploaded.');
     const o=collect();
     if(isPrivCal(o.calendarId) && !ensurePrivReadySync()) return;
+    fx.commit();
     if(isNew){ touch(o); data.projects.push(o); }
     else { const calChanged=orig.calendarId!==o.calendarId; Object.assign(orig,o); touch(orig);
       if(calChanged) for(const it of [...data.events,...data.tasks]) if(it.projectId===orig.id){ it.calendarId=o.calendarId; touch(it); } }
@@ -3604,6 +3652,7 @@ function showProjectPage(id, page){
       <span class="tag">${esc(c.name)}</span><span class="tag">${PROJ_STATUS[p.status]}</span>${editable?'<button data-pedit>✎ Edit</button>':''}<button data-prep>📊 Report</button><button class="ghost" data-close>✕</button></div>
       <div class="pp-head">${p.dueDate?`<span class="hint">Due ${esc(fmtShort(fromKey(p.dueDate)))}</span>`:''}<div style="flex:1;min-width:180px"><div class="hint">${st.done} of ${st.done+st.open} tasks done</div><div class="progress"><i style="width:${Math.round(st.progress*100)}%"></i></div></div>${budget}</div>
       ${p.description?`<p class="hint">${esc(p.description)}</p>`:''}
+      ${fileRefs(p).length?`<div class="flist pp-files">${filesListHTML(fileRefs(p))}</div>`:''}
       <div class="tabs">${[['tasks','Tasks'],['timeline','Timeline'],['stats','Stats']].map(([k,l])=>`<button data-ptab="${k}" class="${ppTab===k?'on':''}">${l}</button>`).join('')}</div>${body}`;
     const B=box();
     $$('[data-close]',B).forEach(b=>b.onclick=close);
@@ -3612,7 +3661,7 @@ function showProjectPage(id, page){
     const pe=$('[data-pedit]',B); if(pe) pe.onclick=()=>openProjectEditor(id);
     $('[data-prep]',B).onclick=()=>openReports('project',{projectId:id});
     $$('[data-pnew]',B).forEach(b=>b.onclick=()=> b.dataset.pnew==='task'?openTaskEditor(null,newTask({projectId:id,calendarId:p.calendarId})):openEventEditor(null,newEvent({projectId:id,calendarId:p.calendarId})));
-    bindTaskRows(B);
+    bindTaskRows(B); bindFilesList(B, fileRefs(p));
     $$('[data-occ]',B).forEach(r=>r.onclick=()=>openOccPopover(r.dataset.occ,r.dataset.oc,r.dataset.ok,r));
     $$('.bcol',B).forEach(c=>{ c.addEventListener('dragover',e=>{ if(editable){ e.preventDefault(); c.classList.add('dragover'); } }); c.addEventListener('dragleave',()=>c.classList.remove('dragover'));
       c.addEventListener('drop',e=>{ c.classList.remove('dragover'); e.preventDefault(); const t=task(e.dataTransfer.getData('text/x-task')); if(t) setTaskStatus(t,c.dataset.status); }); });
@@ -4458,11 +4507,13 @@ async function importIcsFile(file){
   const items=parseIcs(await file.text());
   if(!items.length) return alert('No events or tasks found in that file.');
   const known=new Set([...data.events,...data.tasks].map(x=>x.uid).filter(Boolean));
+  const oldImp=data.events.filter(e=>e.uid && e.category==='other');
   const d=openDialog(`<div class="dhd"><h2>📥 Import “${esc(file.name)}”</h2><button class="ghost" data-close>✕</button></div>
     <form class="frm"><label>Calendar</label><select name="calendarId">${calOptions('work')}</select><label>Project</label><select name="projectId">${projOptions('work',null)}</select></form>
-    <div class="hint" style="margin:8px 0">${items.length} item(s). Items already imported before (same UID) are unticked.</div>
+    <div class="hint" style="margin:8px 0">${items.length} item(s). Events are added as <b>Meetings</b>. Items already imported before (same UID) are unticked.</div>
+    ${oldImp.length?`<label class="hint" style="display:block;margin:0 0 8px"><input type="checkbox" data-oldimp checked> Also change the ${oldImp.length} event${oldImp.length===1?'':'s'} imported earlier as “Other” to Meeting</label>`:''}
     <div style="max-height:46vh;overflow:auto"><table class="rt"><thead><tr><th><input type="checkbox" data-all checked aria-label="All"></th><th>Type</th><th>When</th><th>Title</th></tr></thead><tbody>
-    ${items.map((x,i)=>`<tr><td><input type="checkbox" data-i="${i}" ${x.uid&&known.has(x.uid)?'':'checked'}></td><td>${x.kind==='task'?'Task':x.rrule?'🔁 Event':'Event'}${x.uid&&known.has(x.uid)?' <span class="tag">duplicate</span>':''}</td><td class="num">${x.kind==='task'?(x.dueDate||''):esc(x.allDay?x.start:x.start.replace('T',' '))}</td><td>${esc(x.title)}</td></tr>`).join('')}</tbody></table></div>
+    ${items.map((x,i)=>`<tr><td><input type="checkbox" data-i="${i}" ${x.uid&&known.has(x.uid)?'':'checked'}></td><td>${x.kind==='task'?'Task':x.rrule?'🔁 Meeting':'Meeting'}${x.uid&&known.has(x.uid)?' <span class="tag">duplicate</span>':''}</td><td class="num">${x.kind==='task'?(x.dueDate||''):esc(x.allDay?x.start:x.start.replace('T',' '))}</td><td>${esc(x.title)}</td></tr>`).join('')}</tbody></table></div>
     <div class="dacts"><span class="sp"></span><button data-close>Cancel</button><button class="primary" data-go>Import selected</button></div>`,{size:'mid'});
   const F=$('form',d); bindCalProj(F);
   $('[data-all]',d).onchange=e=>$$('[data-i]',d).forEach(c=>c.checked=e.target.checked);
@@ -4472,9 +4523,10 @@ async function importIcsFile(file){
     let n=0;
     for(const c of $$('[data-i]:checked',d)){ const x=items[+c.dataset.i];
       if(x.kind==='task'){ const t=newTask({title:x.title, calendarId, projectId, dueDate:x.dueDate, dueTime:x.dueTime, notes:x.notes, status:x.done?'done':'todo', uid:x.uid}); if(x.reminders.length) t.reminders=x.reminders; touch(t); data.tasks.push(t); }
-      else { const e=newEvent({title:x.title, calendarId, projectId, allDay:x.allDay, start:x.start, end:x.end, tz:x.tz, location:x.location, notes:x.notes, status:x.cancelled?'cancelled':'confirmed', rrule:x.rrule, exceptions:x.exceptions, uid:x.uid, category:'other'}); e.reminders=x.reminders.length?x.reminders:e.reminders; if(e.allDay) delete e.tz; touch(e); data.events.push(e); }
+      else { const e=newEvent({title:x.title, calendarId, projectId, allDay:x.allDay, start:x.start, end:x.end, tz:x.tz, location:x.location, notes:x.notes, status:x.cancelled?'cancelled':'confirmed', rrule:x.rrule, exceptions:x.exceptions, uid:x.uid, category:'meeting'}); e.reminders=x.reminders.length?x.reminders:e.reminders; if(e.allDay) delete e.tz; touch(e); data.events.push(e); }
       n++; }
-    changed(); closeDialog(d); renderAll(); toast(`Imported ${n} item${n===1?'':'s'}`,{actions:[['Undo',undo]]});
+    let m=0; if($('[data-oldimp]',d)&&$('[data-oldimp]',d).checked) for(const e of oldImp){ e.category='meeting'; touch(e); m++; }
+    changed(); closeDialog(d); renderAll(); toast(`Imported ${n} item${n===1?'':'s'}`+(m?` · ${m} earlier import${m===1?'':'s'} changed to Meeting`:''),{actions:[['Undo',undo]]});
   };
 }
 
@@ -4542,8 +4594,9 @@ async function importBackupFile(f){
 /* ---------- archive (old items to a file, opened on demand) ---------- */
 async function archiveOld(months){
   const cut=key(addDays(TODAY(),-Math.round(months*30.4)));
-  const oldT=data.tasks.filter(t=>!isOpen(t) && (t.completedAt?t.completedAt.slice(0,10):(t.dueDate||'9999'))<cut);
-  const oldE=data.events.filter(e=>!e.rrule && (e.end||e.start).slice(0,10)<cut || (e.rrule && e.rrule.until && e.rrule.until<cut));
+  // items with attachments stay in the calendar (their files live on the server)
+  const oldT=data.tasks.filter(t=>!isOpen(t) && (t.completedAt?t.completedAt.slice(0,10):(t.dueDate||'9999'))<cut && !fileRefs(t).length);
+  const oldE=data.events.filter(e=>(!e.rrule && (e.end||e.start).slice(0,10)<cut || (e.rrule && e.rrule.until && e.rrule.until<cut)) && !fileRefs(e).length);
   if(!oldT.length && !oldE.length) return toast('Nothing older than that to archive.');
   if(!await confirmDlg({title:'Archive',html:`Move ${oldE.length} past events and ${oldT.length} finished tasks (before ${fmtDMY(fromKey(cut))}) to an archive file? The file downloads now; open it later from Settings → Data to include it in reports and search.`},[['Archive','y','primary'],['Cancel',null]])) return;
   const file={archive:true, created:nowISO(), before:cut, events:oldE.filter(x=>!isPrivate(x)||privKey), tasks:oldT.filter(x=>!isPrivate(x)||privKey), projects:data.projects};
@@ -4694,7 +4747,9 @@ function openSettings(tab){
       <div class="li"><button data-x="backup">⬇ Export backup (.json)</button>${editable?'<button data-x="restore">⬆ Restore / import backup…</button>':''}</div>
       <div class="rsec">Archive</div><p class="hint">Saving is limited to 3 MB on the server. Move past events and finished tasks older than a number of months to a file. Open an archive file to include it in reports and search for this session.</p>
       <div class="li">${editable?`<input type="number" data-am value="${s.archiveMonths}" min="1" style="width:80px"> months <button data-x="archive">Archive now…</button>`:''}<button data-x="openarch">Open archive file…</button>${archive?`<span class="tag">Open: ${esc(archive.name)}</span>`:''}</div>
-      <p class="hint">Current size: about ${Math.round(JSON.stringify(data).length/1024)} KB of 3,000 KB.</p></div>`;
+      <p class="hint">Current size: about ${Math.round(JSON.stringify(data).length/1024)} KB of 3,000 KB. Items with attachments are not archived.</p>
+      <div class="rsec">Attachments</div><p class="hint">Files attached to events, tasks and projects are kept on the server in the <code>data/files</code> folder. A file that is no longer attached anywhere (also not in the Trash) is deleted automatically 7 days later.</p>
+      <div class="li"><span class="hint" data-fuse>…</span>${editable?'<button data-x="filesgc">🧹 Clean up now</button>':''}</div></div>`;
     dd.querySelector('.box').innerHTML=`<div class="dhd"><h2>⚙ Settings</h2><button class="ghost" data-close>✕</button></div><div class="tabs">${tabs.map(([k,l])=>`<button data-st="${k}" class="${setTab===k?'on':''}">${l}</button>`).join('')}</div>${body}<div class="dacts"><span class="sp"></span><button class="primary" data-close>Done</button></div>`;
     const B=dd.querySelector('.box');
     $$('[data-close]',B).forEach(b=>b.onclick=()=>closeDialog(dd));
@@ -4706,6 +4761,7 @@ function openSettings(tab){
     $$('[data-p]',B).forEach(x=>x.onchange=x.oninput=()=>{ const n=x.dataset.p; prefs[n]= x.type==='checkbox'?x.checked : x.type==='range'?+x.value : x.value; savePrefs(); if(n==='offlineCopy'){ if(x.checked) cacheOffline(); else clearOffline(); } if(x.type==='range') render(); });
     const pm=$('[data-perm]',B); if(pm) pm.onclick=()=>askDesktopPermission().then(draw);
     const ch=$('[data-chime]',B); if(ch) ch.onclick=chime;
+    const fu=$('[data-fuse]',B); if(fu) filesUsageHTML().then(h=>{ fu.innerHTML=esc(h); }).catch(()=>{ fu.textContent=''; });
     $$('[data-edrem]',B).forEach(b=>b.onclick=()=>{ const n=b.dataset.edrem; const list=clone(s[n]).map(r=>{ delete r.anchor; return r; }); const ed=openDialog(`<div class="dhd"><h2>Default reminders</h2></div><div id="dr"></div><div class="dacts"><span class="sp"></span><button data-close>Cancel</button><button class="primary" data-ok>Save</button></div>`,{size:'narrow'});
       const rr=()=>{ $('#dr',ed).innerHTML=remFormHTML(list); bindRems($('#dr',ed),list,null,rr); }; rr(); $('[data-ok]',ed).onclick=()=>{ s[n]=list; changed(); closeDialog(ed); draw(); }; });
     // calendars
@@ -4720,10 +4776,11 @@ function openSettings(tab){
     const sb=$('[data-showbusy]',B); if(sb) sb.onchange=()=>{ s.showBusy=sb.checked; changed(); draw(); };
     a('[data-otpl]',openTemplates);
     $$('[data-rest]',B).forEach(b=>b.onclick=()=>{ restoreFromTrash(b.dataset.rest); draw(); });
-    a('[data-empty]',async()=>{ if(!await confirmDlg('Permanently delete everything in the trash?',[['Empty trash','y','danger'],['Cancel',null]])) return; data.trash=[]; changed(); draw(); });
+    a('[data-empty]',async()=>{ if(!await confirmDlg('Permanently delete everything in the trash?',[['Empty trash','y','danger'],['Cancel',null]])) return; data.trash=[]; changed(); draw(); setTimeout(()=>filesGc(false),3000); });
     $$('[data-x]',B).forEach(b=>b.onclick=()=>{ const x=b.dataset.x;
       if(x==='icsexp') openIcsExport(); if(x==='icsimp') pickFile('.ics,text/calendar',importIcsFile); if(x==='csvimp') pickFile('.csv,text/csv,.txt',importCsvFile);
       if(x==='backup') exportBackup(); if(x==='restore') pickFile('.json,.js,application/json',importBackupFile);
+      if(x==='filesgc'){ filesGc(true).then(r=>{ if(r){ toast(r.deleted?`${r.deleted} unused file${r.deleted===1?'':'s'} deleted`:r.unused?`${r.unused} unused file${r.unused===1?'':'s'} will be deleted in 7 days`:'Nothing to clean up'); draw(); } }); }
       if(x==='archive'){ const m=+$('[data-am]',B).value||12; s.archiveMonths=m; archiveOld(m); } if(x==='openarch') pickFile('.json',f=>openArchiveFile(f).then(draw)); });
   };
   const dd=openDialog('',{size:'mid',refresh:()=>{ if(!$('input:focus,select:focus',dd)) draw(); }}); draw();
@@ -5042,6 +5099,7 @@ function bindTop(){
     if(a==='signout') signOut();
     if(a==='password') openChangePassword();
     if(!editable) return;
+    if(a==='msgimp') pickFile('.msg,application/vnd.ms-outlook',importMsgFile);
     if(a==='icsimp') pickFile('.ics,text/calendar',importIcsFile);
     if(a==='csvimp') pickFile('.csv,text/csv,.txt',importCsvFile);
     if(a==='owner') promptDlg('Calendar owner','Name shown in the header', data.owner||'').then(v=>{ if(v!=null){ data.owner=v.trim(); changed(); render(); } });
@@ -5096,6 +5154,7 @@ function newThing(kind, cat){
   if(kind==='day'){ cursor=fromKey(k); render(); return openDrawer(k); }
   if(kind==='template') return openTemplates();
   if(kind==='plan') return openPlanDay();
+  if(kind==='msgimp') return pickFile('.msg,application/vnd.ms-outlook',importMsgFile);
   if(kind==='icsimp') return pickFile('.ics,text/calendar',importIcsFile);
   if(kind==='csvimp') return pickFile('.csv,text/csv,.txt',importCsvFile);
 }
@@ -5270,6 +5329,7 @@ function renderEventDetail(el){
       ${dtRow('Tags', it.tags.map(t=>`<span class="tag">#${esc(t)}</span>`).join(' '))}
       ${dtRow('Links', it.links.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label||l.url)}</a>`).join('<br>'))}
       ${dtRow('Tasks', linked.map(t=>`<a href="#" data-task="${esc(t.id)}">${isOpen(t)?'☐':'✓'} ${esc(t.title)}</a>`).join('<br>'))}
+      ${dtRow('Attachments', fileRefs(it).length?`<div class="flist">${filesListHTML(fileRefs(it))}</div>`:'')}
     </dl>
     ${conf?`<div class="warnbox">⚠ ${conf.map(esc).join('<br>')}</div>`:''}
     ${it.notes?`<h2 class="dt-sub">Notes</h2><div class="md dt-notes">${md(it.notes)}</div>`:''}
@@ -5290,6 +5350,7 @@ function renderEventDetail(el){
   a('ics',()=>exportIcs({items:[it], name:it.title}));
   a('del',()=>deleteOcc(it.id, o.occ, 'event'));
   a('close',closeDetailTab);
+  bindFilesList(el, fileRefs(it));
   $$('[data-proj]',el).forEach(x=>x.onclick=e=>{ e.preventDefault(); openDetailTab({t:'project', id:x.dataset.proj}); });
   $$('[data-task]',el).forEach(x=>x.onclick=e=>{ e.preventDefault(); openTaskEditor(x.dataset.task); });
 }
@@ -5428,13 +5489,559 @@ async function closeEditPage(d){
   if(dirty || saving || conflict) return;        // keep the tab open; the banner explains what is wrong
   if(changeSeq===d._seq && !d._cancel){           // e.g. Delete was cancelled: show the editor again
     msg.remove(); d.style.display=''; d._closing=false; return; }
-  _dlgStack=_dlgStack.filter(x=>x!==d); d.remove();
+  _dlgStack=_dlgStack.filter(x=>x!==d); d.remove(); if(d._filesCtl) d._filesCtl.finish();
   const did=changeSeq!==d._seq;
   $('#closingWhy',msg).textContent = did ? 'Saved. You can close this tab.' : 'You can close this tab.';
   $('h1',msg).textContent = did ? 'Saved ✓' : 'Closed';
   window.close();                                 // works for tabs the calendar opened
 }
 window.addEventListener('beforeunload',e=>{ const p=$('.dlg.page'); if(p && p._modified && !p._closing && changeSeq===p._seq){ e.preventDefault(); e.returnValue=''; } });
+
+/* ============================================================
+   Outlook .msg reader (Compound File Binary + MAPI properties).
+   Pure functions on a Uint8Array; nothing leaves the browser.
+   ============================================================ */
+function cfbRead(buf){
+  const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const sig=[0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1];
+  if(u8.length<512 || sig.some((b,i)=>u8[i]!==b)) throw new Error('This is not an Outlook message (.msg) file.');
+  const ssz = 1<<dv.getUint16(0x1E,true), msz = 1<<dv.getUint16(0x20,true);
+  const nFat = dv.getUint32(0x2C,true), dirStart = dv.getUint32(0x30,true), cutoff = dv.getUint32(0x38,true);
+  const miniFatStart = dv.getUint32(0x3C,true), difStart = dv.getUint32(0x44,true);
+  const END=0xFFFFFFFE, FREE=0xFFFFFFFF;
+  const off = s => (s+1)*ssz;
+  const u32 = o => o+4<=u8.length ? dv.getUint32(o,true) : FREE;
+  // FAT sector list from the header DIFAT (109 entries) and any DIFAT sectors
+  const fatSecs=[];
+  for(let i=0;i<109 && fatSecs.length<nFat;i++){ const s=u32(0x4C+i*4); if(s<0xFFFFFFFA) fatSecs.push(s); }
+  for(let s=difStart, guard=0; s<0xFFFFFFFA && fatSecs.length<nFat && guard<10000; guard++){
+    const per=ssz/4-1; for(let i=0;i<per && fatSecs.length<nFat;i++){ const x=u32(off(s)+i*4); if(x<0xFFFFFFFA) fatSecs.push(x); }
+    s=u32(off(s)+per*4);
+  }
+  const fat=new Uint32Array(fatSecs.length*ssz/4);
+  fatSecs.forEach((s,j)=>{ for(let i=0;i<ssz/4;i++) fat[j*ssz/4+i]=u32(off(s)+i*4); });
+  const chain=(start, table)=>{ const out=[]; const seen=new Set(); for(let s=start; s!==END && s<table.length && !seen.has(s); s=table[s]){ seen.add(s); out.push(s); } return out; };
+  const readBig=(start,size)=>{ const out=new Uint8Array(size); let p=0; for(const s of chain(start,fat)){ const o=off(s), n=Math.min(ssz,size-p); if(n<=0) break; out.set(u8.subarray(o,Math.min(o+n,u8.length)),p); p+=n; } return out; };
+  // directory
+  const dirBytes=(()=>{ const ss=chain(dirStart,fat); const out=new Uint8Array(ss.length*ssz); ss.forEach((s,i)=>out.set(u8.subarray(off(s),off(s)+ssz),i*ssz)); return out; })();
+  const ddv=new DataView(dirBytes.buffer);
+  const ents=[];
+  for(let o=0;o+128<=dirBytes.length;o+=128){
+    const nl=ddv.getUint16(o+64,true), type=dirBytes[o+66];
+    let name=''; for(let i=0;i<Math.max(0,nl-2);i+=2) name+=String.fromCharCode(ddv.getUint16(o+i,true));
+    ents.push({name, type, left:ddv.getUint32(o+68,true), right:ddv.getUint32(o+72,true), child:ddv.getUint32(o+76,true), start:ddv.getUint32(o+116,true), size:ddv.getUint32(o+120,true)});
+  }
+  const root=ents[0]; if(!root || root.type!==5) throw new Error('The .msg file is damaged (no root).');
+  const miniStream=readBig(root.start, root.size);
+  const miniFat=(()=>{ const ss=chain(miniFatStart,fat); const t=new Uint32Array(ss.length*ssz/4); ss.forEach((s,j)=>{ for(let i=0;i<ssz/4;i++) t[j*ssz/4+i]=u32(off(s)+i*4); }); return t; })();
+  const readMini=(start,size)=>{ const out=new Uint8Array(size); let p=0; for(const s of chain(start,miniFat)){ const o=s*msz, n=Math.min(msz,size-p); if(n<=0) break; out.set(miniStream.subarray(o,o+n),p); p+=n; } return out; };
+  const children=e=>{ const out=[]; const stack=[e.child]; const seen=new Set(); while(stack.length){ const i=stack.pop(); if(i>=ents.length||seen.has(i)) continue; seen.add(i); const c=ents[i]; out.push(c); stack.push(c.left, c.right); } return out; };
+  const node=e=>{ const n={name:e.name, streams:{}, storages:{}};
+    for(const c of children(e)){
+      if(c.type===2) n.streams[c.name]=()=> c.size<cutoff ? readMini(c.start,c.size) : readBig(c.start,c.size);
+      else if(c.type===1) n.storages[c.name]=node(c);
+    }
+    return n; };
+  return node(root);
+}
+const _u16 = b => { let s=''; for(let i=0;i+1<b.length;i+=2) s+=String.fromCharCode(b[i]|(b[i+1]<<8)); return s.replace(/\0+$/,''); };
+function _ansi(b, cp){ try{ return new TextDecoder(cp||'windows-1252').decode(b).replace(/\0+$/,''); }catch(e){ return Array.from(b,c=>String.fromCharCode(c)).join('').replace(/\0+$/,''); } }
+const MSG_CP = {1250:'windows-1250',1251:'windows-1251',1252:'windows-1252',1253:'windows-1253',1254:'windows-1254',1255:'windows-1255',1256:'windows-1256',1257:'windows-1257',65001:'utf-8',28591:'iso-8859-1',28597:'iso-8859-7',20127:'us-ascii',932:'shift_jis',936:'gbk',949:'euc-kr',950:'big5'};
+/* properties of one storage: {id(hex4): value}; variable-size values from __substg1.0_ streams,
+   fixed-size ones (numbers, dates, flags) from __properties_version1.0 */
+function msgProps(st, headerLen, cp){
+  const p={};
+  const fixed=st.streams['__properties_version1.0'];
+  if(fixed){ const b=fixed(); const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+    for(let o=headerLen;o+16<=b.length;o+=16){
+      const type=dv.getUint16(o,true), id=dv.getUint16(o+2,true).toString(16).toUpperCase().padStart(4,'0');
+      if(type===0x0003) p[id]=dv.getInt32(o+8,true);
+      else if(type===0x000B) p[id]=dv.getUint16(o+8,true)!==0;
+      else if(type===0x0040){ const lo=dv.getUint32(o+8,true), hi=dv.getUint32(o+12,true); const ms=(hi*4294967296+lo)/1e4-11644473600000; if(ms>0) p[id]=new Date(ms); }
+      else if(type===0x0014) p[id]=dv.getUint32(o+8,true)+dv.getUint32(o+12,true)*4294967296;
+    } }
+  for(const [n,fn] of Object.entries(st.streams)){
+    const m=/^__substg1\.0_([0-9A-F]{4})([0-9A-F]{4})$/i.exec(n); if(!m) continue;
+    const id=m[1].toUpperCase(), type=m[2].toUpperCase();
+    if(type==='001F') p[id]=_u16(fn());
+    else if(type==='001E') { if(p[id]===undefined) p[id]=_ansi(fn(), cp); }
+    else if(type==='0102') p[id]=fn();
+  }
+  return p;
+}
+function parseMsg(buf){
+  const root=cfbRead(buf);
+  const pre=msgProps(root, 32);                               // first pass for the code page
+  const cp=MSG_CP[pre['3FDE']]||MSG_CP[pre['3FFD']]||'windows-1252';
+  const P=msgProps(root, 32, cp);
+  const str=id=>typeof P[id]==='string'?P[id]:'';
+  const isAddr=s=>/^[^@\s<>]+@[^@\s<>]+$/.test(s||'');
+  // recipients
+  const recips=Object.entries(root.storages).filter(([n])=>/^__recip_version1\.0_/i.test(n)).sort((a,b)=>a[0].localeCompare(b[0])).map(([,s])=>{
+    const r=msgProps(s,8,cp); const addr=[r['39FE'],r['5FF6'],r['3003']].find(isAddr)||'';
+    return {name:r['3001']||r['5FF6']||addr, email:addr, type:r['0C15']===2?'cc':r['0C15']===3?'bcc':'to'}; });
+  const hdrs=str('007D');
+  const hdr=n=>{ const m=new RegExp('^'+n+':[ \\t]*((?:.*)(?:\\r?\\n[ \\t].*)*)','im').exec(hdrs); return m?m[1].replace(/\r?\n[ \t]+/g,' ').trim():''; };
+  const fromHdr=hdr('From');
+  const fromEmail=[str('5D01'),str('0C1F'),str('5D02'),str('0065')].find(isAddr) || ((/<([^>]+@[^>]+)>/.exec(fromHdr)||[])[1]) || (isAddr(fromHdr)?fromHdr:'');
+  const fromName=str('0C1A')||str('0042')||fromHdr.replace(/<[^>]*>/,'').replace(/"/g,'').trim()||fromEmail;
+  // body: plain text, HTML, or compressed RTF (which may carry HTML)
+  let html=null; if(P['1013']!==undefined) html = P['1013'] instanceof Uint8Array ? _ansi(P['1013'], MSG_CP[P['3FDE']]||(/charset=["']?utf-8/i.test(_ansi(P['1013'].subarray(0,2000)))?'utf-8':cp)) : String(P['1013']);
+  let rtf=null; if(P['1009'] instanceof Uint8Array){ try{ rtf=rtfDecompress(P['1009']); }catch(e){} }
+  let text=str('1000');
+  if(!html && rtf && /\\fromhtml1/.test(rtf)) html=rtfToText(rtf,{html:true});
+  if(!text && !html && rtf) text=rtfToText(rtf);
+  // attachments
+  const atts=Object.entries(root.storages).filter(([n])=>/^__attach_version1\.0_/i.test(n)).sort((a,b)=>a[0].localeCompare(b[0])).map(([,s])=>{
+    const a=msgProps(s,8,cp); const method=a['3705']||1;
+    const emb=s.storages['__substg1.0_3701000D'];
+    let data=a['3701'] instanceof Uint8Array ? a['3701'] : null;
+    let name=a['3707']||a['3704']||a['3001']||'';
+    let embedded=null; if(emb){ try{ const sub=msgProps(emb,24,cp); embedded={subject:sub['0037']||''}; }catch(e){} if(!name) name=(embedded&&embedded.subject||'Attached email')+'.msg'; }
+    if(!name) name='attachment'+(data?'.bin':'');
+    const cid=(a['3712']||'').replace(/^<|>$/g,'');
+    return {name, mime:a['370E']||'', size:data?data.length:0, data, method, cid, hidden:!!a['7FFE'] || (!!cid && /^image\//i.test(a['370E']||'') && !!html && html.includes(cid)), embedded:!!emb||method===5, ole:method===6};
+  });
+  const date=P['0039']||P['0E06']||P['3007']||(hdr('Date')?new Date(hdr('Date')):null);
+  const to=str('0E04')||recips.filter(r=>r.type==='to').map(r=>r.name).join('; ');
+  const cc=str('0E03')||recips.filter(r=>r.type==='cc').map(r=>r.name).join('; ');
+  return {subject:str('0037')||hdr('Subject'), fromName, fromEmail, to, cc, recips, date:(date instanceof Date && !isNaN(date))?date:null,
+    importance:P['0017']===undefined?1:P['0017'], cls:str('001A'), text, html, hasRtf:!!rtf, atts};
+}
+/* MS-OXRTFCP: compressed RTF */
+function rtfDecompress(b){
+  const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+  const comp=dv.getUint32(0,true), raw=dv.getUint32(4,true), magic=dv.getUint32(8,true);
+  if(magic===0x414c454d){ let s=''; for(const c of b.subarray(16,16+raw)) s+=String.fromCharCode(c); return s; }          // "MELA": stored uncompressed
+  if(magic!==0x75465a4c) throw new Error('unknown RTF compression');   // "LZFu"
+  const pre='{\\rtf1\\ansi\\mac\\deff0\\deftab720{\\fonttbl;}{\\f0\\fnil \\froman \\fswiss \\fmodern \\fscript \\fdecor MS Sans SerifSymbolArialTimes New RomanCourier{\\colortbl\\red0\\green0\\blue0\r\n\\par \\pard\\plain\\f0\\fs20\\b\\i\\u\\tab\\tx';
+  const dict=new Uint8Array(4096); for(let i=0;i<pre.length;i++) dict[i]=pre.charCodeAt(i);
+  let wp=pre.length; const out=[]; let p=16; const end=Math.min(b.length, comp+4);
+  outer: while(p<end){
+    const ctl=b[p++];
+    for(let bit=0;bit<8 && p<end;bit++){
+      if(ctl & (1<<bit)){
+        const w=(b[p]<<8)|b[p+1]; p+=2; const o=w>>4, len=(w&15)+2;
+        if(o===wp) break outer;
+        for(let i=0;i<len;i++){ const c=dict[(o+i)&4095]; out.push(c); dict[wp]=c; wp=(wp+1)&4095; }
+      } else { const c=b[p++]; out.push(c); dict[wp]=c; wp=(wp+1)&4095; }
+    }
+  }
+  const r=out.slice(0,raw||out.length); let s=''; for(let i=0;i<r.length;i+=8192) s+=String.fromCharCode.apply(null, r.slice(i,i+8192));
+  return s;                                                               // one character per byte; rtfToText decodes the code page
+}
+/* RTF -> plain text; with {html:true} returns the HTML that Outlook wrapped in RTF (\fromhtml1) */
+function rtfToText(rtf, opts={}){
+  const SKIP=new Set(['fonttbl','colortbl','stylesheet','info','pict','object','header','footer','headerl','headerr','footerl','footerr','xmlnstbl','listtable','listoverridetable','rsidtbl','generator','themedata','colorschememapping','latentstyles','datastore','pgdsctbl','mmathPr','fldinst']);
+  let out='', i=0, uc=1, skipBytes=0, cp='windows-1252'; const stack=[]; let st={skip:false, htmlrtf:false, tag:false};
+  const emit=s=>{ if(skipBytes>0){ skipBytes--; return; } if(st.skip) return; if(opts.html){ if(st.htmlrtf && !st.tag) return; } out+=s; };
+  const bytes=[]; const flush=()=>{ if(bytes.length){ const s=_ansi(Uint8Array.from(bytes), cp); bytes.length=0; if(!st.skip && !(opts.html&&st.htmlrtf&&!st.tag)) out+=s; } };
+  while(i<rtf.length){
+    const c=rtf[i];
+    if(c==='{'){ flush(); stack.push({...st, uc}); i++; continue; }
+    if(c==='}'){ flush(); const s=stack.pop(); if(s){ uc=s.uc; delete s.uc; st=s; } i++; continue; }
+    if(c==='\\'){
+      const n=rtf[i+1];
+      if(n==="'"){ const h=parseInt(rtf.substr(i+2,2),16); i+=4; if(skipBytes>0){ skipBytes--; continue; } if(!isNaN(h)) bytes.push(h); continue; }
+      flush();
+      if(n==='\\'||n==='{'||n==='}'){ emit(n); i+=2; continue; }
+      if(n==='*'){ i+=2; // {\* destination}: ignored unless it is an HTML tag Outlook kept
+        const m=/^\\([a-z]+)/i.exec(rtf.slice(i,i+40)); if(m && m[1]==='htmltag' && opts.html){ st.tag=true; } else st.skip=true; continue; }
+      if(n==='~'){ emit(' '); i+=2; continue; }
+      if(n==='-'||n==='_'){ i+=2; continue; }
+      if(n==='\r'||n==='\n'){ emit('\n'); i+=2; continue; }
+      const m=/^\\([a-z]{1,32})(-?\d{1,10})? ?/i.exec(rtf.slice(i,i+48));
+      if(!m){ i+=2; continue; }
+      i+=m[0].length; const w=m[1], arg=m[2]!==undefined?+m[2]:null;
+      if(SKIP.has(w)){ st.skip=true; continue; }
+      if(w==='htmlrtf'){ st.htmlrtf = arg!==0; continue; }
+      if(w==='htmltag'){ st.tag=true; continue; }
+      if(w==='uc'){ uc=arg||0; continue; }
+      if(w==='ansicpg'){ cp=MSG_CP[arg]||cp; continue; }
+      if(w==='u'){ let cc=arg; if(cc<0) cc+=65536; emit(String.fromCharCode(cc)); skipBytes=uc; continue; }
+      if(opts.html && st.htmlrtf) continue;
+      if(w==='par'||w==='line'||w==='sect'||w==='page') emit('\n');
+      else if(w==='tab') emit('\t');
+      else if(w==='emdash') emit('—'); else if(w==='endash') emit('–');
+      else if(w==='lquote') emit('‘'); else if(w==='rquote') emit('’'); else if(w==='ldblquote') emit('“'); else if(w==='rdblquote') emit('”'); else if(w==='bullet') emit('•');
+      continue;
+    }
+    if(c==='\r'||c==='\n'){ i++; continue; }
+    if(skipBytes>0){ skipBytes--; i++; continue; }
+    bytes.push(c.charCodeAt(0)&255); i++;
+  }
+  flush();
+  return opts.html ? out : out.replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+
+/* ============================================================
+   Attachments: upload (in pieces, with progress), preview, download,
+   rename, replace, delete; files of Personal items are encrypted in
+   the browser. Items keep a list: files:[{id,name,size,type,added,by,key?,iv?}]
+   ============================================================ */
+let FILES_INFO=null;
+async function filesInfo(force){ if(!FILES_INFO || force){ try{ FILES_INFO=await api('files_info'); }catch(e){ if(!FILES_INFO) FILES_INFO={max:50*1048576, chunk:1048576, graceDays:7}; } } return FILES_INFO; }
+function fmtSize(n){ n=+n||0; return n<1024?n+' B':n<1048576?(n/1024).toFixed(n<10240?1:0)+' KB':n<1073741824?(n/1048576).toFixed(n<10485760?1:0)+' MB':(n/1073741824).toFixed(1)+' GB'; }
+const fileExt = f => ((/\.([a-z0-9]{1,8})$/i.exec(f.name||'')||[])[1]||'').toLowerCase();
+const IMG_EXT={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',bmp:'image/bmp',svg:'image/svg+xml',avif:'image/avif'};
+const TEXT_EXT=new Set(['txt','csv','tsv','md','json','log','ics','vcf','xml','yaml','yml','ini','eml']);
+const MEDIA_EXT={mp3:'audio/mpeg',m4a:'audio/mp4',wav:'audio/wav',ogg:'audio/ogg',mp4:'video/mp4',webm:'video/webm',mov:'video/quicktime'};
+function fileKind(f){ const x=fileExt(f);
+  if(IMG_EXT[x]) return 'image'; if(x==='pdf') return 'pdf'; if(x==='msg') return 'msg'; if(TEXT_EXT.has(x)) return 'text';
+  if(MEDIA_EXT[x]) return MEDIA_EXT[x].startsWith('audio')?'audio':'video'; return 'other'; }
+function fileIcon(f){ const x=fileExt(f), k=fileKind(f);
+  return k==='image'?'🖼':k==='pdf'?'📕':k==='msg'?'📧':k==='audio'?'🎵':k==='video'?'🎬':/^(docx?|odt|rtf)$/.test(x)?'📝':/^(xlsx?|ods|csv)$/.test(x)?'📊':/^(pptx?|odp)$/.test(x)?'📽':/^(zip|7z|rar|gz|tar)$/.test(x)?'🗜':k==='text'?'📄':'📎'; }
+/* only these types are ever given to the browser to display; everything else is a plain download */
+function safeType(f){ const x=fileExt(f), k=fileKind(f);
+  return k==='image'?IMG_EXT[x]:k==='pdf'?'application/pdf':k==='audio'||k==='video'?MEDIA_EXT[x]:k==='text'?'text/plain;charset=utf-8':'application/octet-stream'; }
+const fileRefs = it => arr(it && it.files);
+
+/* ---------- transfer ---------- */
+async function rawPost(action, query, bytes){
+  let r; try{ r=await fetch(API+'?a='+action+query, {method:'POST', credentials:'same-origin', cache:'no-store', headers:{'Content-Type':'application/octet-stream','X-WTC-Token':token,'Accept':'application/json'}, body:bytes}); }
+  catch(e){ const err=new Error('Cannot reach the server. Check your internet connection.'); err.status=0; throw err; }
+  let j=null; try{ j=await r.json(); }catch(e){}
+  if(!r.ok){ const err=new Error((j&&j.error)||('The server answered with an error ('+r.status+').')); err.status=r.status; err.body=j; throw err; }
+  return j;
+}
+/* upload one file (File, Blob or bytes) -> attachment record */
+async function uploadAttachment(src, {name, encrypt, onProgress}={}){
+  const info=await filesInfo();
+  name = name || src.name || 'file';
+  let bytes = src instanceof Uint8Array ? src : new Uint8Array(await src.arrayBuffer());
+  const rec={id:'', name, size:bytes.length, type:(src.type||'').slice(0,100), added:nowISO(), by:session?session.user:''};
+  if(bytes.length>info.max) throw new Error(`“${name}” is larger than ${fmtSize(info.max)}.`);
+  if(encrypt){
+    const k=await crypto.subtle.generateKey({name:'AES-GCM', length:256}, true, ['encrypt','decrypt']);
+    const iv=crypto.getRandomValues(new Uint8Array(12));
+    bytes=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, k, bytes));
+    rec.key=b64(await crypto.subtle.exportKey('raw',k)); rec.iv=b64(iv);
+  }
+  const st=await api('upload_start',{name, size:bytes.length});
+  const chunk=st.chunk||info.chunk||1048576;
+  for(let off=0; off<bytes.length || (off===0 && !bytes.length); off+=chunk){
+    let tries=0;
+    for(;;){ try{ await rawPost('upload_chunk', `&id=${st.id}&off=${off}`, bytes.subarray(off, off+chunk)); break; }
+      catch(e){ if(e.status===409 && e.body && e.body.have===off+Math.min(chunk,bytes.length-off)) break;   // that piece had arrived
+        if(++tries>=3 || (e.status && e.status!==409 && e.status<500)) throw e; await new Promise(r=>setTimeout(r,800*tries)); } }
+    if(onProgress) onProgress(Math.min(1,(off+chunk)/Math.max(1,bytes.length)));
+    if(!bytes.length) break;
+  }
+  await api('upload_end',{id:st.id});
+  rec.id=st.id; return rec;
+}
+const _fileCache=new Map(); let _fileCacheBytes=0;
+async function fetchAttachment(f){
+  if(_fileCache.has(f.id)) return _fileCache.get(f.id);
+  let r; try{ r=await fetch(API+'?a=file&id='+encodeURIComponent(f.id),{credentials:'same-origin', cache:'no-store'}); }
+  catch(e){ throw new Error('Cannot reach the server. Check your internet connection.'); }
+  if(!r.ok){ let j=null; try{ j=await r.json(); }catch(e){} if(r.status===401) sessionLost('Your session has ended. Please sign in again.'); throw new Error((j&&j.error)||'The file could not be downloaded ('+r.status+').'); }
+  let bytes=new Uint8Array(await r.arrayBuffer());
+  if(f.key){ try{ const k=await crypto.subtle.importKey('raw', unb64(f.key), 'AES-GCM', false, ['decrypt']); bytes=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(f.iv)}, k, bytes)); }
+    catch(e){ throw new Error('The file could not be decrypted.'); } }
+  if(bytes.length<20*1048576){ _fileCache.set(f.id, bytes); _fileCacheBytes+=bytes.length;
+    while(_fileCacheBytes>60*1048576 && _fileCache.size>1){ const [k,v]=_fileCache.entries().next().value; _fileCache.delete(k); _fileCacheBytes-=v.length; } }
+  return bytes;
+}
+function saveBytes(bytes, name){
+  const u=URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'}));
+  const a=document.createElement('a'); a.href=u; a.download=name||'file'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u), 30000);
+}
+async function downloadAttachment(f){ try{ saveBytes(await fetchAttachment(f), f.name); }catch(e){ alert(e.message); } }
+
+/* ---------- preview ---------- */
+async function openAttachment(f, opts={}){
+  const k=fileKind(f);
+  const d=openDialog(`<div class="dhd"><h2 style="word-break:break-all">${fileIcon(f)} ${esc(f.name)}</h2><span class="hint">${fmtSize(f.size)}</span><button class="ghost" data-close aria-label="Close">✕</button></div>
+    <div class="fprev" data-body><div class="hint">Loading…</div></div>
+    <div class="dacts"><button data-a="dl">⬇ Download</button>${k==='pdf'?'<button data-a="tab">↗ Open in a new tab</button>':''}${k==='msg'&&editable?'<button data-a="imp">📧 Add as a new task or event…</button>':''}<span class="sp"></span><button data-close>Close</button></div>`,{size:k==='msg'||k==='pdf'?'wide':'mid'});
+  const B=$('[data-body]',d);
+  $('[data-a="dl"]',d).onclick=()=>downloadAttachment(f);
+  let bytes;
+  try{ bytes=await fetchAttachment(f); }catch(e){ B.innerHTML=`<div class="warnbox">${esc(e.message)}</div>`; return d; }
+  const url=()=>{ const u=URL.createObjectURL(new Blob([bytes],{type:safeType(f)})); d._urls=(d._urls||[]).concat(u); return u; };
+  const prevClose=d._onclose; d._onclose=()=>{ (d._urls||[]).forEach(u=>setTimeout(()=>URL.revokeObjectURL(u),60000)); prevClose&&prevClose(); };
+  if(k==='image') B.innerHTML=`<img src="${url()}" alt="${esc(f.name)}" style="max-width:100%;max-height:70vh;display:block;margin:auto">`;
+  else if(k==='pdf'){ const u=url(); B.innerHTML=`<iframe class="fframe" src="${u}" title="${esc(f.name)}"></iframe><div class="hint">If the PDF does not show here, use “Open in a new tab” or Download.</div>`; $('[data-a="tab"]',d).onclick=()=>window.open(u,'_blank','noopener'); }
+  else if(k==='audio'||k==='video') B.innerHTML=`<${k} controls src="${url()}" style="max-width:100%;display:block;margin:auto"></${k}>`;
+  else if(k==='text') B.innerHTML=`<pre class="ftext">${esc(new TextDecoder().decode(bytes.subarray(0,1048576)))}${bytes.length>1048576?'\n…':''}</pre>`;
+  else if(k==='msg'){
+    let m; try{ m=parseMsg(bytes); }catch(e){ B.innerHTML=`<div class="warnbox">${esc(e.message)}</div>`; return d; }
+    B.innerHTML=emailPreviewHTML(m); bindEmailPreview(B, m);
+    const ib=$('[data-a="imp"]',d); if(ib) ib.onclick=()=>{ closeDialog(d); openEmailImport(bytes, f.name); };
+  }
+  else B.innerHTML=`<p class="hint">This type of file cannot be shown here. Download it to open it with its own program.</p>`;
+  return d;
+}
+
+/* ---------- list shown in details, popovers ---------- */
+function filesListHTML(files){
+  return files.map((f,i)=>`<div class="fitem"><a href="#" data-fopen="${i}" title="Open">${fileIcon(f)} ${esc(f.name)}</a><span class="hint">${fmtSize(f.size)}</span><button class="ghost fbtn" data-fdl="${i}" title="Download" aria-label="Download ${esc(f.name)}">⬇</button></div>`).join('');
+}
+function bindFilesList(root, files){
+  $$('[data-fopen]',root).forEach(a=>a.onclick=e=>{ e.preventDefault(); openAttachment(files[+a.dataset.fopen]); });
+  $$('[data-fdl]',root).forEach(b=>b.onclick=e=>{ e.preventDefault(); downloadAttachment(files[+b.dataset.fdl]); });
+}
+
+/* ---------- editor section ----------
+   Files uploaded while the editor is open are deleted again if it is cancelled.
+   Files removed from a saved item stay on the server until they have been unused for 7 days
+   (so Undo and the Trash still work), then the automatic clean-up deletes them. */
+function attachEditorHTML(){ return `<div class="sec">Attachments</div><div class="full att" data-att></div>`; }
+function attachEditor(d, files, {ro, encrypt}={}){
+  const el=$('[data-att]',d);
+  const list=clone(arr(files)).map(f=>{ if(f.pending){ const g={...f}; delete g.pending; return g; } return f; });
+  const mine=new Set(arr(files).filter(f=>f.pending).map(f=>f.id));    // uploaded for this editor (e.g. from an imported email)
+  const up=[];                                                         // uploads in progress {name, p}
+  let committed=false;
+  const touchD=()=>{ d._modified=true; };
+  const draw=()=>{
+    el.innerHTML = (list.length?`<div class="flist">${list.map((f,i)=>`<div class="fitem" data-fi="${i}">
+        <a href="#" data-fopen="${i}" title="Open">${fileIcon(f)} ${esc(f.name)}</a>${f.key?'<span title="Encrypted">🔒</span>':''}
+        <span class="hint">${fmtSize(f.size)}${f.by?' · '+esc(f.by):''}${f.added?' · '+esc(fmtWhen(f.added)):''}</span>
+        <span class="fbtns"><button type="button" class="ghost fbtn" data-fdl="${i}" title="Download" aria-label="Download">⬇</button>${ro?'':`<button type="button" class="ghost fbtn" data-fren="${i}" title="Rename" aria-label="Rename">✎</button><button type="button" class="ghost fbtn" data-frep="${i}" title="Replace with another file" aria-label="Replace">⇄</button><button type="button" class="ghost fbtn" data-fdel="${i}" title="Remove" aria-label="Remove">✕</button>`}</span></div>`).join('')}</div>`:(ro?'<span class="hint">None</span>':''))
+      + up.map(u=>`<div class="fitem up"><span>⏫ ${esc(u.name)}</span><span class="fbar"><i style="width:${Math.round(u.p*100)}%"></i></span><span class="hint">${Math.round(u.p*100)}%</span></div>`).join('')
+      + (ro?'':`<div class="fdrop" data-fdrop tabindex="0">Drop files here or <button type="button" data-fadd>📎 Add files…</button> <span class="hint">several at once · up to ${fmtSize((FILES_INFO&&FILES_INFO.max)||50*1048576)} each${encrypt&&encrypt()?' · encrypted (Personal)':''}</span></div>`);
+    bindFilesList(el, list);
+    if(ro) return;
+    $('[data-fadd]',el).onclick=()=>pickFiles('', fl=>addFiles(fl));
+    $$('[data-fdel]',el).forEach(b=>b.onclick=()=>{ list.splice(+b.dataset.fdel,1); touchD(); draw(); });
+    $$('[data-fren]',el).forEach(b=>b.onclick=async()=>{ const f=list[+b.dataset.fren]; const x=fileExt(f);
+      const n=await promptDlg('Rename attachment','New name', f.name); if(n==null||!n.trim()) return;
+      let nn=n.trim().replace(/[\\/\x00-\x1f]+/g,'_').slice(0,200); if(x && !/\.[a-z0-9]{1,8}$/i.test(nn)) nn+='.'+x;
+      f.name=nn; touchD(); draw(); });
+    $$('[data-frep]',el).forEach(b=>b.onclick=()=>pickFiles('', async fl=>{ const i=+b.dataset.frep; const r=await uploadMany([fl[0]]); if(r[0]){ list.splice(i,1,r[0]); touchD(); draw(); } }, false));
+    const z=$('[data-fdrop]',el);
+    z.addEventListener('dragover',e=>{ if([...e.dataTransfer.types].includes('Files')){ e.preventDefault(); z.classList.add('over'); } });
+    z.addEventListener('dragleave',()=>z.classList.remove('over'));
+    z.addEventListener('drop',e=>{ e.preventDefault(); e.stopPropagation(); z.classList.remove('over'); if(e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]); });
+  };
+  async function uploadMany(fl){
+    const out=[];
+    for(const file of fl){
+      const u={name:file.name, p:0}; up.push(u); draw();
+      try{ const r=await uploadAttachment(file,{encrypt:!!(encrypt&&encrypt()), onProgress:p=>{ u.p=p; draw(); }}); mine.add(r.id); out.push(r); }
+      catch(e){ toast(`“${file.name}” was not added: ${e.message}`,{ms:9000}); }
+      finally{ up.splice(up.indexOf(u),1); draw(); }
+    }
+    return out;
+  }
+  async function addFiles(fl){ const r=await uploadMany(fl); if(r.length){ list.push(...r); touchD(); draw(); } }
+  // drop files anywhere on the editor
+  d.addEventListener('dragover',e=>{ if(!ro && e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+  d.addEventListener('drop',e=>{ if(ro || !e.dataTransfer || !e.dataTransfer.files.length) return; e.preventDefault(); addFiles([...e.dataTransfer.files]); });
+  filesInfo().then(draw);
+  draw();
+  const ctl={
+    get list(){ return list.map(f=>({...f})); },
+    busy:()=>up.length>0,
+    commit(){ committed=true; },
+    finish(){ // dialog closed: delete what was uploaded here and not kept
+      const keep=committed?new Set(list.map(f=>f.id)):new Set();
+      const ids=[...mine].filter(id=>!keep.has(id) && !allFileIds().has(id));
+      if(ids.length && editable) api('file_delete',{ids}).catch(()=>{});
+    }
+  };
+  d._filesCtl=ctl;
+  return ctl;
+}
+function pickFiles(accept, fn, multiple=true){ const i=$('#fileInput'); i.accept=accept||''; i.multiple=multiple; i.value=''; i.onchange=()=>{ const fl=[...i.files]; i.multiple=false; if(fl.length) fn(fl); }; i.click(); }
+
+/* ---------- clean-up of unused files ---------- */
+function allFileIds(){
+  const s=new Set();
+  for(const it of [...data.events, ...data.tasks, ...data.projects]) for(const f of fileRefs(it)) s.add(f.id);
+  for(const x of data.trash) for(const f of fileRefs(x.item)) s.add(f.id);
+  return s;
+}
+function canCleanFiles(){ return editable && session && !(data.private && privLocked); }   // a locked Personal block may hold references we cannot see
+async function filesGc(manual){
+  if(!canCleanFiles()){ if(manual) alert('Unlock Personal items first: their attachments must be counted too.'); return null; }
+  try{ const r=await api('files_gc',{keep:[...allFileIds()]}); safeSet('wtc-filesgc', String(Date.now())); FILES_INFO=null; return r; }
+  catch(e){ if(manual) alert(e.message); return null; }
+}
+function maybeFilesGc(){ if(DETAIL || !canCleanFiles()) return; const last=+safeGet('wtc-filesgc')||0; if(Date.now()-last>20*3600e3) setTimeout(()=>filesGc(false), 8000); }
+/* Settings → Data */
+async function filesUsageHTML(){
+  const i=await filesInfo(true);
+  return `${i.count!=null?`${i.count} file${i.count===1?'':'s'} · ${fmtSize(i.bytes)}`:'—'}${i.free!=null?` · ${fmtSize(i.free)} free on the server`:''} · up to ${fmtSize(i.max)} per file`;
+}
+
+/* ============================================================
+   Import an Outlook email (.msg): preview, choose what to create,
+   then the full editor opens with the email and its attachments
+   ============================================================ */
+function htmlToMarkdown(html){
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  doc.querySelectorAll('script,style,head,title,meta,link,xml,o\\:p').forEach(x=>x.remove());
+  const BLOCK=/^(P|DIV|H[1-6]|UL|OL|LI|TABLE|TR|BLOCKQUOTE|PRE|HR|SECTION|ARTICLE|HEADER|FOOTER)$/;
+  let out='';
+  const walk=(n, pre)=>{
+    for(const c of n.childNodes){
+      if(c.nodeType===3){ out+= pre ? c.nodeValue : c.nodeValue.replace(/[\s ]+/g,' '); continue; }
+      if(c.nodeType!==1) continue;
+      const t=c.tagName;
+      if(t==='BR'){ out+='  \n'; continue; }
+      if(t==='HR'){ out+='\n\n---\n\n'; continue; }
+      if(t==='IMG'){ const a=c.getAttribute('alt'); if(a) out+='['+a+']'; continue; }
+      if(BLOCK.test(t)) out+='\n\n';
+      if(/^H[1-6]$/.test(t)) out+='#'.repeat(+t[1])+' ';
+      if(t==='LI') out+= (c.parentNode&&c.parentNode.tagName==='OL'?'1. ':'- ');
+      if(t==='TD'||t==='TH') out+=' ';
+      if(t==='B'||t==='STRONG'||t==='I'||t==='EM'){ const mk=t==='B'||t==='STRONG'?'**':'*'; const s=out.length; walk(c, pre); const inner=out.slice(s);
+        if(inner.trim() && !/\n\s*\n/.test(inner)){ const m=/^(\s*)([\s\S]*?)(\s*)$/.exec(inner); out=out.slice(0,s)+m[1]+mk+m[2]+mk+m[3]; } continue; }   // only within one paragraph
+      if(t==='A'){ const h=c.getAttribute('href')||''; const s=out.length; walk(c, pre); const txt=out.slice(s).trim();
+        if(/^https?:\/\//i.test(h) && txt && txt!==h) out=out.slice(0,s)+'['+txt.replace(/[\[\]]/g,'')+']('+h.replace(/[()\s]/g,encodeURIComponent)+')'; continue; }
+      walk(c, pre || t==='PRE');
+      if(BLOCK.test(t)) out+='\n\n';
+    }
+  };
+  walk(doc.body||doc, false);
+  return out.replace(/[ \t]+\n/g,m=>m.startsWith('  ')?'  \n':'\n').replace(/\n[ \t]+/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+function textToMarkdown(t){
+  return String(t||'').replace(/\r\n?/g,'\n').replace(/[ \t]+$/gm,'').replace(/\n{3,}/g,'\n\n').trim()
+    .replace(/^([#>+\-*]|\d+[.)])(\s)/gm,'\\$1$2')                       // plain text: no accidental headings or lists
+    .replace(/([^\n])\n(?!\n)/g,'$1  \n');                                // keep the email's line breaks
+}
+function emailBodyMd(m){ return m.html ? htmlToMarkdown(m.html) : textToMarkdown(m.text); }
+function emailFmtDate(d){ return d ? d.toLocaleString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : ''; }
+function emailFrom(m){ return m.fromName && m.fromEmail && m.fromName!==m.fromEmail ? `${m.fromName} <${m.fromEmail}>` : (m.fromName||m.fromEmail||''); }
+function emailNotes(m, withBody){
+  const L=[];
+  const mdx=s=>String(s).replace(/([\\`*_\[\]<>])/g,'\\$1');
+  if(emailFrom(m)) L.push('**From:** '+mdx(emailFrom(m)));
+  if(m.to) L.push('**To:** '+mdx(m.to));
+  if(m.cc) L.push('**Cc:** '+mdx(m.cc));
+  if(m.date) L.push('**Sent:** '+mdx(emailFmtDate(m.date)));
+  if(m.subject) L.push('**Subject:** '+mdx(m.subject));
+  let s=L.join('  \n');
+  if(withBody){ let b=emailBodyMd(m); const MAX=30000; if(b.length>MAX) b=b.slice(0,MAX)+'\n\n*… shortened; the full email is attached.*'; if(b) s+='\n\n---\n\n'+b; }
+  return s;
+}
+/* email shown in a sandboxed frame (no scripts, no remote images); cid: pictures come from the attachments */
+function emailFrameDoc(m){
+  let h=m.html||'';
+  for(const a of m.atts) if(a.cid && a.data && /^image\//i.test(a.mime||'') && a.data.length<4*1048576){
+    let bin=''; for(let i=0;i<a.data.length;i+=8192) bin+=String.fromCharCode.apply(null,a.data.subarray(i,i+8192));
+    h=h.split('cid:'+a.cid).join('data:'+a.mime+';base64,'+btoa(bin)); }
+  return '<!doctype html><meta charset="utf-8"><base target="_blank"><style>body{font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif;margin:10px;color:#222;background:#fff;word-wrap:break-word}img{max-width:100%;height:auto}</style>'+h;
+}
+function emailPreviewHTML(m, opts={}){
+  const att=m.atts.filter(a=>!a.hidden);
+  return `<div class="mailhd">
+      <div class="mailsubj">${esc(m.subject||'(no subject)')}${m.importance===2?' <span class="tag" style="color:var(--sick)">❗ High importance</span>':''}</div>
+      <div><b>From</b> ${esc(emailFrom(m))}</div>${m.to?`<div><b>To</b> ${esc(m.to)}</div>`:''}${m.cc?`<div><b>Cc</b> ${esc(m.cc)}</div>`:''}
+      ${m.date?`<div><b>Sent</b> ${esc(emailFmtDate(m.date))}</div>`:''}
+      ${att.length&&!opts.noAtt?`<div class="mailatt">${att.map(a=>`<span class="tag" ${a.data?`data-matt="${m.atts.indexOf(a)}" style="cursor:pointer" title="Download"`:''}>📎 ${esc(a.name)}${a.size?' · '+fmtSize(a.size):''}</span>`).join(' ')}</div>`:''}
+    </div>
+    ${m.html&&m.text?`<div class="seg mailseg"><button type="button" data-mv="html" class="on">Formatted</button><button type="button" data-mv="text">Plain text</button></div>`:''}
+    <div class="mailbody" data-mbody></div>`;
+}
+function bindEmailPreview(root, m){
+  const body=$('[data-mbody]',root);
+  const show=v=>{ if(v==='html' && m.html){ body.innerHTML='<iframe class="mailframe" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" title="Email"></iframe>'; $('iframe',body).srcdoc=emailFrameDoc(m); }
+    else body.innerHTML=`<pre class="ftext">${esc((m.text||'').replace(/\r\n?/g,'\n').replace(/\n{3,}/g,'\n\n'))||'<span class="hint">(no text)</span>'}</pre>`;
+    $$('[data-mv]',root).forEach(b=>b.classList.toggle('on',b.dataset.mv===v)); };
+  $$('[data-mv]',root).forEach(b=>b.onclick=()=>show(b.dataset.mv));
+  $$('[data-matt]',root).forEach(t=>t.onclick=()=>{ const a=m.atts[+t.dataset.matt]; if(a&&a.data) saveBytes(a.data,a.name); });
+  show(m.html?'html':'text');
+}
+function msgFileOk(f){ return /\.msg$/i.test(f.name||''); }
+async function importMsgFile(file){
+  if(!editable) return;
+  if(file.size>(await filesInfo()).max*2) return alert('That email is too large to import.');
+  openEmailImport(new Uint8Array(await file.arrayBuffer()), file.name);
+}
+function openEmailImport(bytes, fname){
+  let m; try{ m=parseMsg(bytes); }catch(e){ return alert(`“${fname}” could not be read: ${e.message}`); }
+  const k=todayKey();
+  const n=new Date(NOW()); const st=minToHM(Math.min(23*60,Math.ceil((n.getHours()*60+n.getMinutes())/30)*30+30));
+  const atts=m.atts.map((a,i)=>({...a,i})).filter(a=>a.data || a.embedded);
+  const d=openDialog(`<div class="dhd"><h2>📧 Import email</h2><span class="hint" style="word-break:break-all">${esc(fname)}</span><button class="ghost" data-close aria-label="Close">✕</button></div>
+    <div class="mailimp">
+      <div class="mailprev">${emailPreviewHTML(m,{noAtt:true})}</div>
+      <form class="frm mailform" autocomplete="off">
+        <label>Add as</label><select name="kind"><option value="task">☑ Task</option>${Object.entries(CATEGORIES).map(([c,l])=>`<option value="${c}">${l}</option>`).join('')}</select>
+        <label>Title</label><input type="text" name="title" value="${esc(m.subject||'Email from '+(m.fromName||m.fromEmail||''))}" required>
+        <label>Calendar</label><div class="row"><select name="calendarId">${calOptions('work')}</select><select name="projectId" aria-label="Project">${projOptions('work',null)}</select></div>
+        <label data-t>Due</label><div class="row" data-t><input type="date" name="due" value="${keyAdd(k,2)}"><select name="priority" aria-label="Priority">${[[1,'P1 urgent'],[2,'P2 high'],[3,'P3 normal'],[4,'P4 low']].map(([v,l])=>`<option value="${v}" ${(m.importance===2?2:m.importance===0?4:3)===v?'selected':''}>${l}</option>`).join('')}</select></div>
+        <label data-e>When</label><div class="row" data-e><input type="date" name="sd" value="${k}"><input type="time" name="st" value="${st}" step="300" data-timed> – <input type="time" name="et" value="${localAddMin(k+'T'+st,S().defaultEventMin||60).slice(11,16)}" step="300" data-timed><label class="hint"><input type="checkbox" name="allDay"> All day</label></div>
+        <label>Notes</label><label class="hint"><input type="checkbox" name="withBody" checked> Sender, recipients, date and the email text</label>
+        <label>Attach</label><div class="list-edit">
+          <label class="hint"><input type="checkbox" name="orig" checked> 📧 The original email (${esc(fname)}, ${fmtSize(bytes.length)})</label>
+          ${atts.map(a=>`<label class="hint"><input type="checkbox" data-ai="${a.i}" ${a.embedded&&!a.data?'disabled':a.hidden?'':'checked'}> ${fileIcon(a)} ${esc(a.name)}${a.size?' · '+fmtSize(a.size):''}${a.hidden?' · <i>picture inside the text</i>':''}${a.embedded&&!a.data?' · <i>attached email: kept inside the original email</i>':''}</label>`).join('')||'<span class="hint">The email has no attachments.</span>'}
+        </div>
+        <div class="full" data-prog></div>
+      </form>
+    </div>
+    <div class="dacts"><span class="sp"></span><button data-close>Cancel</button><button data-a="now">Add now</button><button class="primary" data-a="edit">Continue to all details…</button></div>`,{size:'wide', focus:'[name=title]'});
+  const F=$('form',d); bindCalProj(F); bindEmailPreview($('.mailprev',d), m);
+  const kind=$('[name=kind]',F), allDay=$('[name=allDay]',F);
+  const sync=()=>{ const t=kind.value==='task'; $$('[data-t]',F).forEach(x=>x.style.display=t?'':'none'); $$('[data-e]',F).forEach(x=>x.style.display=t?'none':'');
+    $$('[data-timed]',F).forEach(x=>x.style.display=allDay.checked?'none':''); };
+  kind.onchange=()=>{ if(kind.value==='deadline') allDay.checked=true; sync(); }; allDay.onchange=sync; sync();
+  let busy=false;
+  const go=async(edit)=>{
+    if(busy || !F.reportValidity()) return;
+    const v=n=>$(`[name=${n}]`,F).value;
+    const calendarId=v('calendarId'), projectId=v('projectId')||null, enc=isPrivCal(calendarId);
+    if(enc && !ensurePrivReadySync()) return;
+    // what to upload
+    const jobs=[]; if($('[name=orig]',F).checked) jobs.push({name:/\.msg$/i.test(fname)?fname:fname+'.msg', bytes, type:'application/vnd.ms-outlook'});
+    for(const c of $$('[data-ai]:checked',F)){ const a=m.atts[+c.dataset.ai]; if(a&&a.data) jobs.push({name:a.name, bytes:a.data, type:a.mime}); }
+    busy=true; $$('.dacts button',d).forEach(b=>b.disabled=true);
+    const P=$('[data-prog]',d); const files=[];
+    try{
+      for(const [j,x] of jobs.entries()){
+        P.innerHTML=`<div class="fitem up"><span>⏫ ${esc(x.name)} (${j+1} of ${jobs.length})</span><span class="fbar"><i style="width:0"></i></span></div>`;
+        const r=await uploadAttachment(new Blob([x.bytes],{type:x.type||''}),{name:x.name, encrypt:enc, onProgress:p=>{ const i=$('.fbar i',P); if(i) i.style.width=Math.round(p*100)+'%'; }});
+        files.push(r);
+      }
+    }catch(e){ P.innerHTML=`<div class="warnbox">Upload failed: ${esc(e.message)}</div>`; busy=false; $$('.dacts button',d).forEach(b=>b.disabled=false);
+      if(files.length) api('file_delete',{ids:files.map(f=>f.id)}).catch(()=>{}); return; }
+    const notes=emailNotes(m, $('[name=withBody]',F).checked);
+    const tags=['email'];
+    let it;
+    if(kind.value==='task'){
+      it=newTask({title:v('title').trim(), calendarId, projectId, dueDate:v('due')||null, priority:+v('priority'), notes, tags});
+    } else {
+      const sd=v('sd')||k, ad=allDay.checked;
+      let s1=sd+'T'+(v('st')||S().workStart), e1=sd+'T'+(v('et')||'');
+      if(!(localDiffMin(s1,e1)>0)) e1=localAddMin(s1,S().defaultEventMin||60);
+      it=newEvent({title:v('title').trim(), calendarId, projectId, category:kind.value, start:ad?sd:s1, end:ad?sd:e1, tz:ACTIVE_TZ, allDay:ad, notes, tags,
+        attendees:[...new Set([m.fromName||m.fromEmail, ...m.recips.filter(r=>r.type!=='bcc').map(r=>r.name||r.email)].filter(Boolean))].slice(0,30)});
+      if(ad) delete it.tz;
+    }
+    it.files=files;
+    d._onclose=null; closeDialog(d);
+    if(edit){
+      it.files=files.map(f=>({...f, pending:true}));      // deleted again if the editor is cancelled
+      return it.type==='task' ? openTaskEditor(null, it) : openEventEditor(null, it);
+    }
+    if(!saveNewItem(it)){ api('file_delete',{ids:files.map(f=>f.id)}).catch(()=>{}); return; }
+    toast(`Added “${it.title}”${files.length?` with ${files.length} attachment${files.length===1?'':'s'}`:''}`,{actions:[['Open',()=>it.type==='task'?openTaskEditor(it.id):openEvent(it.id)],['Undo',undo]]});
+  };
+  $('[data-a="now"]',d).onclick=()=>go(false);
+  $('[data-a="edit"]',d).onclick=()=>go(true);
+  F.onsubmit=e=>{ e.preventDefault(); go(true); };
+  return d;
+}
+
+/* drop an Outlook email anywhere on the calendar to import it; other files dropped outside an
+   editor are ignored (instead of the browser leaving the calendar to show them) */
+window.addEventListener('dragover',e=>{ if(e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+window.addEventListener('drop',e=>{
+  if(!e.dataTransfer || !e.dataTransfer.files.length) return;
+  e.preventDefault();
+  if(topDialog() || !session || DETAIL) return;
+  const f=[...e.dataTransfer.files].find(msgFileOk);
+  if(!f) return toast('Drop an Outlook email (.msg) here to import it, or open an item and drop files on it to attach them.');
+  if(!editable) return toast('Your account can only view the calendar.');
+  importMsgFile(f);
+});
 
 /* ---------- start ---------- */
 bindTop();

@@ -11,6 +11,10 @@ declare(strict_types=1);
 const DATA_DIR      = __DIR__ . '/data';
 const BACKUP_DIR    = DATA_DIR . '/backups';
 const SESSION_DIR   = DATA_DIR . '/sessions';
+const FILES_DIR     = DATA_DIR . '/files';    // attachments: one guarded .php file each (cannot be opened from a browser)
+const FILE_MAX      = 50 * 1048576;           // largest attachment (50 MB)
+const FILE_CHUNK    = 1048576;                // uploads arrive in 1 MB pieces, so PHP's upload limits don't matter
+const FILE_GRACE    = 7 * 86400;              // unused attachments are deleted 7 days after they stop being used
 const KEEP_BACKUPS  = 200;            // newest backups kept on the server
 const MAX_BODY      = 3000000;        // 3 MB request limit
 const REMEMBER_DAYS = 30;
@@ -31,11 +35,26 @@ function fail(string $msg, int $code = 400, array $extra = []): void { out(['err
 
 /* ---------- storage ---------- */
 function ensure_dirs(): void {
-  foreach ([DATA_DIR, BACKUP_DIR, SESSION_DIR] as $d) {
+  foreach ([DATA_DIR, BACKUP_DIR, SESSION_DIR, FILES_DIR] as $d) {
     if (!is_dir($d) && !@mkdir($d, 0700, true)) fail('The server cannot create the folder "' . basename($d) . '". Make the data folder writable (permissions 755 or 775).', 500);
     if (!is_writable($d)) fail('The server cannot write to the folder "' . basename($d) . '". Make it writable (permissions 755 or 775).', 500);
   }
+  if (!is_file(FILES_DIR . '/index.html')) @file_put_contents(FILES_DIR . '/index.html', '');
 }
+
+/* ---------- attachments ----------
+   data/files/<32 hex>.php = GUARD line + the file's bytes (already encrypted by the browser for Personal items).
+   data/files.php = index {id: {name, size, by, added, unused?}}. */
+function file_id_ok($id): bool { return is_string($id) && preg_match('/^[a-f0-9]{32}$/', $id) === 1; }
+function file_path(string $id, bool $part = false): string { return FILES_DIR . '/' . $id . ($part ? '.part' : '') . '.php'; }
+function files_index(): array { $i = store_read('files'); return is_array($i) ? $i : []; }
+function files_usage(array $idx): array {
+  $n = 0; $b = 0;
+  foreach ($idx as $f) if (empty($f['part'])) { $n++; $b += (int)($f['size'] ?? 0); }
+  return ['count' => $n, 'bytes' => $b];
+}
+function file_new_id(): string { do { $id = bin2hex(random_bytes(16)); } while (is_file(file_path($id)) || is_file(file_path($id, true))); return $id; }
+function file_remove(string $id, array &$idx): void { @unlink(file_path($id)); @unlink(file_path($id, true)); unset($idx[$id]); }
 function store_path(string $name): string { return DATA_DIR . '/' . $name . '.php'; }
 function read_file_json(string $f) {
   if (!is_file($f)) return null;
@@ -400,6 +419,127 @@ switch ($a) {
       return $n;
     });
     out(['rev' => $res['rev']]);
+
+  case 'files_info':                              // limits and usage
+    require_user();
+    session_write_close();
+    $free = @disk_free_space(FILES_DIR);
+    out(['max' => FILE_MAX, 'chunk' => FILE_CHUNK, 'graceDays' => FILE_GRACE / 86400, 'free' => $free === false ? null : (float)$free] + files_usage(files_index()));
+
+  case 'upload_start':                            // editor: {name, size} -> {id}
+    if (!$post) fail('Use POST.', 405);
+    $u = require_user(true);
+    session_write_close();
+    $b = body();
+    $size = (int)($b['size'] ?? -1);
+    if ($size < 0) fail('Invalid file.');
+    if ($size > FILE_MAX) fail('That file is larger than ' . (FILE_MAX / 1048576) . ' MB.', 413);
+    $free = @disk_free_space(FILES_DIR);
+    if ($free !== false && $free < $size + 20 * 1048576) fail('The server has no room for that file.', 507);
+    $name = mb_substr(preg_replace('/[\x00-\x1f\\\\\/]+/u', '_', (string)($b['name'] ?? 'file')), 0, 200);
+    $id = with_lock(function () use ($u, $size, $name) {
+      $idx = files_index();
+      // forget uploads that were started more than a day ago and never finished
+      foreach ($idx as $k => $f) if (!empty($f['part']) && strtotime($f['added']) < time() - 86400) file_remove((string)$k, $idx);
+      $id = file_new_id();
+      if (file_put_contents(file_path($id, true), GUARD, LOCK_EX) === false) fail('Could not write to the data folder.', 500);
+      @chmod(file_path($id, true), 0600);
+      $idx[$id] = ['name' => $name, 'size' => $size, 'by' => $u['user'], 'added' => gmdate('c'), 'part' => true];
+      store_write('files', $idx);
+      return $id;
+    });
+    out(['id' => $id, 'chunk' => FILE_CHUNK]);
+
+  case 'upload_chunk':                            // editor: raw bytes, ?id=&off=
+    if (!$post) fail('Use POST.', 405);
+    require_user(true);
+    session_write_close();
+    $id = (string)($_GET['id'] ?? ''); $off = (int)($_GET['off'] ?? -1);
+    if (!file_id_ok($id) || !is_file(file_path($id, true))) fail('That upload is not open any more. Try again.', 404);
+    $raw = file_get_contents('php://input', false, null, 0, FILE_CHUNK + 1);
+    if ($raw === false || strlen($raw) > FILE_CHUNK) fail('The request is too large.', 413);
+    $f = file_path($id, true);
+    $h = fopen($f, 'ab'); if (!$h) fail('Could not write to the data folder.', 500);
+    flock($h, LOCK_EX); clearstatcache(true, $f);
+    $have = filesize($f) - strlen(GUARD);
+    if ($have !== $off) { flock($h, LOCK_UN); fclose($h); fail('Upload out of step.', 409, ['have' => $have]); }
+    if ($have + strlen($raw) > FILE_MAX) { flock($h, LOCK_UN); fclose($h); fail('That file is too large.', 413); }
+    fwrite($h, $raw); fflush($h); flock($h, LOCK_UN); fclose($h);
+    out(['have' => $have + strlen($raw)]);
+
+  case 'upload_end':                              // editor: {id} -> {id, size}
+    if (!$post) fail('Use POST.', 405);
+    require_user(true);
+    session_write_close();
+    $id = (string)(body()['id'] ?? '');
+    if (!file_id_ok($id)) fail('Unknown file.');
+    $res = with_lock(function () use ($id) {
+      $idx = files_index(); $f = file_path($id, true);
+      if (!isset($idx[$id]) || !is_file($f)) fail('That upload is not open any more. Try again.', 404);
+      clearstatcache(true, $f);
+      $size = filesize($f) - strlen(GUARD);
+      if ($size !== (int)$idx[$id]['size']) fail('The file did not arrive completely. Try again.', 409);
+      if (!@rename($f, file_path($id))) fail('Could not save the file.', 500);
+      unset($idx[$id]['part']);
+      store_write('files', $idx);
+      return ['id' => $id, 'size' => $size];
+    });
+    out($res);
+
+  case 'file':                                    // any signed-in user: ?id= -> the bytes (always as a download, never shown by the browser)
+    require_user();
+    session_write_close();
+    $id = (string)($_GET['id'] ?? '');
+    $f = file_id_ok($id) ? file_path($id) : '';
+    if (!$f || !is_file($f)) fail('That file is no longer on the server.', 404);
+    $size = filesize($f) - strlen(GUARD);
+    header_remove('Content-Type');
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename="attachment.bin"');
+    header('Content-Length: ' . $size);
+    header('Content-Security-Policy: default-src \'none\'; sandbox');
+    header('Cache-Control: private, no-store');
+    $h = fopen($f, 'rb'); fseek($h, strlen(GUARD));
+    while (!feof($h)) { echo fread($h, 65536); }
+    fclose($h);
+    exit;
+
+  case 'file_delete':                             // editor: {ids:[...]} — only files uploaded and never saved (e.g. editor cancelled)
+    if (!$post) fail('Use POST.', 405);
+    require_user(true);
+    session_write_close();
+    $ids = array_values(array_filter((array)(body()['ids'] ?? []), 'file_id_ok'));
+    $n = with_lock(function () use ($ids) {
+      $idx = files_index(); $n = 0;
+      foreach ($ids as $id) if (isset($idx[$id]) || is_file(file_path($id))) { file_remove($id, $idx); $n++; }
+      store_write('files', $idx);
+      return $n;
+    });
+    out(['deleted' => $n]);
+
+  case 'files_gc':                                // editor: {keep:[ids in use]} — files not in use are deleted after FILE_GRACE
+    if (!$post) fail('Use POST.', 405);
+    require_user(true);
+    session_write_close();
+    $keep = array_flip(array_filter((array)(body()['keep'] ?? []), 'file_id_ok'));
+    $res = with_lock(function () use ($keep) {
+      $idx = files_index(); $del = 0; $marked = 0; $now = time();
+      foreach (glob(FILES_DIR . '/*.php') ?: [] as $p) {          // files missing from the index (e.g. copied back by FTP)
+        $k = basename($p, '.php');
+        if (file_id_ok($k) && !isset($idx[$k])) $idx[$k] = ['name' => 'file', 'size' => filesize($p) - strlen(GUARD), 'by' => '', 'added' => gmdate('c')];
+      }
+      foreach ($idx as $id => $f) {
+        $id = (string)$id;
+        if (!empty($f['part'])) continue;
+        if (isset($keep[$id])) { if (isset($f['unused'])) { unset($idx[$id]['unused']); } continue; }
+        if (!is_file(file_path($id))) { unset($idx[$id]); continue; }
+        if (!isset($f['unused'])) { $idx[$id]['unused'] = gmdate('c'); $marked++; }
+        elseif (strtotime($f['unused']) < $now - FILE_GRACE) { file_remove($id, $idx); $del++; }
+      }
+      store_write('files', $idx);
+      return ['deleted' => $del, 'unused' => $marked] + files_usage($idx);
+    });
+    out($res);
 
   default:
     fail('Unknown action.', 404);

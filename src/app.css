@@ -454,3 +454,34 @@ body.detail #detail:has(.dlg.page){max-width:none;margin:0;padding:0}
 #viewBtn{min-width:96px;text-align:left;white-space:nowrap}
 .topbar .nav h1{white-space:nowrap}
 @media (max-width:700px){ #addMenu{position:fixed;left:8px;right:8px;top:calc(var(--topH,58px) - 4px);width:auto;max-height:80vh;overflow:auto} }
+/* attachments */
+.att{display:flex;flex-direction:column;gap:6px}
+.flist{display:flex;flex-direction:column;gap:2px}
+.fitem{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:3px 6px;border-radius:6px}
+.fitem:hover{background:var(--hover,rgba(127,127,127,.08))}
+.fitem>a{word-break:break-all;text-decoration:none}
+.fitem>a:hover{text-decoration:underline}
+.fbtns{margin-left:auto;display:flex;gap:2px}
+.fbtn{padding:2px 6px;min-width:0}
+.fitem.up{opacity:.85}
+.fbar{flex:1;min-width:80px;max-width:220px;height:6px;border-radius:3px;background:var(--line,#ddd);overflow:hidden}
+.fbar i{display:block;height:100%;background:var(--tele,#2e7d32);transition:width .2s}
+.fdrop{border:1.5px dashed var(--line,#ccc);border-radius:8px;padding:10px;text-align:center;color:var(--muted,#666)}
+.fdrop.over{border-color:var(--tele,#2e7d32);background:rgba(46,125,50,.06)}
+.flistp{flex-direction:column;align-items:stretch;max-height:120px;overflow:auto}
+.pp-files{margin:6px 0}
+.fprev{min-height:120px}
+.fframe{width:100%;height:70vh;border:1px solid var(--line,#ddd);border-radius:6px;background:#fff}
+.ftext{white-space:pre-wrap;word-break:break-word;max-height:65vh;overflow:auto;font:13px/1.45 ui-monospace,Consolas,monospace;background:var(--bg2,rgba(127,127,127,.06));padding:10px;border-radius:6px;margin:0}
+/* email import */
+.mailimp{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
+.mailprev{display:flex;flex-direction:column;gap:8px;min-width:0}
+.mailhd{display:flex;flex-direction:column;gap:2px;font-size:13px;border-bottom:1px solid var(--line,#ddd);padding-bottom:8px}
+.mailhd b{display:inline-block;min-width:44px;color:var(--muted,#666);font-weight:500}
+.mailsubj{font-size:16px;font-weight:600;margin-bottom:4px}
+.mailatt{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.mailseg{align-self:flex-start}
+.mailbody .ftext{max-height:52vh}
+.mailframe{width:100%;height:52vh;border:1px solid var(--line,#ddd);border-radius:6px;background:#fff}
+.mailform .list-edit label{display:block}
+@media (max-width:820px){ .mailimp{grid-template-columns:1fr} .mailframe,.mailbody .ftext{height:auto;max-height:40vh} .mailframe{height:40vh} }

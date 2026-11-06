@@ -497,7 +497,7 @@ async def main():
         ok('full title fits in the top bar', await page.eval_on_selector('#title','e=>e.scrollWidth<=e.clientWidth'))
         await page.click('#addBtn'); await page.wait_for_timeout(150)
         items=await page.eval_on_selector_all('#addMenu [data-new]','els=>els.map(e=>e.dataset.new+(e.dataset.cat?":"+e.dataset.cat:""))')
-        ok('Add menu: quick add field focused, all add options listed', await page.evaluate("document.activeElement.id")=='qa' and items==['event:meeting','event:appointment','event:deadline','event:travel','event:social','event:other','task','project','flight','day','template','plan','icsimp','csvimp'], items)
+        ok('Add menu: quick add field focused, all add options listed', await page.evaluate("document.activeElement.id")=='qa' and items==['event:meeting','event:appointment','event:deadline','event:travel','event:social','event:other','task','project','flight','day','template','plan','msgimp','icsimp','csvimp'], items)
         await page.keyboard.type('Menu quick add 9/11 10:00-11:00'); await page.wait_for_timeout(150)
         ok('quick-add preview shows inside the menu', await page.locator('#addMenu #qaPrev.open').is_visible())
         await page.keyboard.press('Enter'); await saved(page)

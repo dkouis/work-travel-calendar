@@ -217,6 +217,7 @@ async function enter(me){
   document.body.classList.remove('locked');
   afterModeChange();
   startReminders();
+  maybeFilesGc();
   if(DETAIL) return;
   setTimeout(tzTravelPrompt, 2500);
   routeMainHash();

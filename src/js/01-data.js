@@ -33,7 +33,7 @@ function normalize(raw){
   if(wasV1 && !d.templates.length) d.templates = seedTemplates();
   if(!d.private || typeof d.private!=='object' || Array.isArray(d.private)) d.private = null;
   d.busy = arr(d.busy);
-  for(const e of d.events){ e.exceptions = obj(e.exceptions); e.reminders = arr(e.reminders); e.tags = arr(e.tags); e.attendees=arr(e.attendees); e.links=arr(e.links); e.linkedTaskIds=arr(e.linkedTaskIds); }
+  for(const e of d.events){ e.exceptions = obj(e.exceptions); e.reminders = arr(e.reminders); e.tags = arr(e.tags); e.attendees=arr(e.attendees); e.links=arr(e.links); e.linkedTaskIds=arr(e.linkedTaskIds); e.files=arr(e.files); }
   for(const t of d.tasks){ t.blocks = arr(t.blocks); t.checklist = arr(t.checklist); t.reminders = arr(t.reminders); t.tags = arr(t.tags); t.dependsOn = arr(t.dependsOn); }
   // purge trash older than 30 days
   const cut = Date.now()-30*864e5;
@@ -148,7 +148,8 @@ function mergePriv(p){
 }
 function normalizeItems(){
   for(const e of data.events){ e.exceptions=obj(e.exceptions); e.reminders=arr(e.reminders); e.tags=arr(e.tags); e.attendees=arr(e.attendees); e.links=arr(e.links); e.linkedTaskIds=arr(e.linkedTaskIds); }
-  for(const t of data.tasks){ t.blocks=arr(t.blocks); t.checklist=arr(t.checklist); t.reminders=arr(t.reminders); t.tags=arr(t.tags); t.dependsOn=arr(t.dependsOn); }
+  for(const t of data.tasks){ t.blocks=arr(t.blocks); t.checklist=arr(t.checklist); t.reminders=arr(t.reminders); t.tags=arr(t.tags); t.dependsOn=arr(t.dependsOn); t.files=arr(t.files); }
+  for(const p of data.projects) p.files=arr(p.files);
 }
 async function tryAutoUnlock(){
   if(!data.private){ privLocked=false; return; }

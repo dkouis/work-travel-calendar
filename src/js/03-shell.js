@@ -31,7 +31,7 @@ function closeDialog(d){
   d = d || _dlgStack[_dlgStack.length-1]; if(!d) return;
   if(d._page){ closeEditPage(d); return; }
   _dlgStack=_dlgStack.filter(x=>x!==d); if(d._refresh) _panelRefreshers.delete(d._refresh);
-  d.remove(); if(d._onclose) d._onclose();
+  d.remove(); if(d._filesCtl) d._filesCtl.finish(); if(d._onclose) d._onclose();
 }
 function topDialog(){ return _dlgStack[_dlgStack.length-1]; }
 function confirmDlg(msg, buttons){ // buttons: [[label,value,cls]]
@@ -208,7 +208,7 @@ function taskRowHTML(t, opts={}){
     <button class="check ${isOpen(t)?'':'on'} pk" data-done="${t.id}" title="${isOpen(t)?'Mark done':'Mark not done'}" aria-label="Done" ${editable?'':'disabled'}>${isOpen(t)?'':'✓'}</button>
     <span class="tt">${bl?'🔒 ':''}${esc(t.title)}</span>
     <span>${t.priority&&t.priority<=2?`<span class="pri p${t.priority}">P${t.priority}</span>`:''}</span>
-    <div class="meta">${due}${p?`<span>${esc(p.icon||'')} ${esc(p.name)}</span>`:''}${t.estimateMin?`<span class="${us?'warn':''}" title="${us?'Not enough time scheduled before the due date':''}">⏱ ${fmtH(plan)} of ${fmtH(t.estimateMin)}${us?' ⚠':''}</span>`:(plan?`<span>⏱ ${fmtH(plan)}</span>`:'')}${t.checklist.length?`<span>☑ ${t.checklist.filter(c=>c.done).length}/${t.checklist.length}</span>`:''}${t.rrule?'<span>🔁</span>':''}${isPrivate(t)?'<span>🔒</span>':''}${opts.sel&&editable?`<label style="margin-left:auto" onclick="event.stopPropagation()"><input type="checkbox" data-tsel="${t.id}" ${selTasks.has(t.id)?'checked':''}> select</label>`:''}</div>
+    <div class="meta">${due}${p?`<span>${esc(p.icon||'')} ${esc(p.name)}</span>`:''}${t.estimateMin?`<span class="${us?'warn':''}" title="${us?'Not enough time scheduled before the due date':''}">⏱ ${fmtH(plan)} of ${fmtH(t.estimateMin)}${us?' ⚠':''}</span>`:(plan?`<span>⏱ ${fmtH(plan)}</span>`:'')}${t.checklist.length?`<span>☑ ${t.checklist.filter(c=>c.done).length}/${t.checklist.length}</span>`:''}${t.rrule?'<span>🔁</span>':''}${fileRefs(t).length?`<span title="Attachments">📎 ${fileRefs(t).length}</span>`:''}${isPrivate(t)?'<span>🔒</span>':''}${opts.sel&&editable?`<label style="margin-left:auto" onclick="event.stopPropagation()"><input type="checkbox" data-tsel="${t.id}" ${selTasks.has(t.id)?'checked':''}> select</label>`:''}</div>
   </div>`;
 }
 function dueLabel(t){

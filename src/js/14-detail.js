@@ -111,6 +111,7 @@ function renderEventDetail(el){
       ${dtRow('Tags', it.tags.map(t=>`<span class="tag">#${esc(t)}</span>`).join(' '))}
       ${dtRow('Links', it.links.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label||l.url)}</a>`).join('<br>'))}
       ${dtRow('Tasks', linked.map(t=>`<a href="#" data-task="${esc(t.id)}">${isOpen(t)?'☐':'✓'} ${esc(t.title)}</a>`).join('<br>'))}
+      ${dtRow('Attachments', fileRefs(it).length?`<div class="flist">${filesListHTML(fileRefs(it))}</div>`:'')}
     </dl>
     ${conf?`<div class="warnbox">⚠ ${conf.map(esc).join('<br>')}</div>`:''}
     ${it.notes?`<h2 class="dt-sub">Notes</h2><div class="md dt-notes">${md(it.notes)}</div>`:''}
@@ -131,6 +132,7 @@ function renderEventDetail(el){
   a('ics',()=>exportIcs({items:[it], name:it.title}));
   a('del',()=>deleteOcc(it.id, o.occ, 'event'));
   a('close',closeDetailTab);
+  bindFilesList(el, fileRefs(it));
   $$('[data-proj]',el).forEach(x=>x.onclick=e=>{ e.preventDefault(); openDetailTab({t:'project', id:x.dataset.proj}); });
   $$('[data-task]',el).forEach(x=>x.onclick=e=>{ e.preventDefault(); openTaskEditor(x.dataset.task); });
 }
@@ -269,7 +271,7 @@ async function closeEditPage(d){
   if(dirty || saving || conflict) return;        // keep the tab open; the banner explains what is wrong
   if(changeSeq===d._seq && !d._cancel){           // e.g. Delete was cancelled: show the editor again
     msg.remove(); d.style.display=''; d._closing=false; return; }
-  _dlgStack=_dlgStack.filter(x=>x!==d); d.remove();
+  _dlgStack=_dlgStack.filter(x=>x!==d); d.remove(); if(d._filesCtl) d._filesCtl.finish();
   const did=changeSeq!==d._seq;
   $('#closingWhy',msg).textContent = did ? 'Saved. You can close this tab.' : 'You can close this tab.';
   $('h1',msg).textContent = did ? 'Saved ✓' : 'Closed';

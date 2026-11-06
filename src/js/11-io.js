@@ -147,11 +147,13 @@ async function importIcsFile(file){
   const items=parseIcs(await file.text());
   if(!items.length) return alert('No events or tasks found in that file.');
   const known=new Set([...data.events,...data.tasks].map(x=>x.uid).filter(Boolean));
+  const oldImp=data.events.filter(e=>e.uid && e.category==='other');
   const d=openDialog(`<div class="dhd"><h2>📥 Import “${esc(file.name)}”</h2><button class="ghost" data-close>✕</button></div>
     <form class="frm"><label>Calendar</label><select name="calendarId">${calOptions('work')}</select><label>Project</label><select name="projectId">${projOptions('work',null)}</select></form>
-    <div class="hint" style="margin:8px 0">${items.length} item(s). Items already imported before (same UID) are unticked.</div>
+    <div class="hint" style="margin:8px 0">${items.length} item(s). Events are added as <b>Meetings</b>. Items already imported before (same UID) are unticked.</div>
+    ${oldImp.length?`<label class="hint" style="display:block;margin:0 0 8px"><input type="checkbox" data-oldimp checked> Also change the ${oldImp.length} event${oldImp.length===1?'':'s'} imported earlier as “Other” to Meeting</label>`:''}
     <div style="max-height:46vh;overflow:auto"><table class="rt"><thead><tr><th><input type="checkbox" data-all checked aria-label="All"></th><th>Type</th><th>When</th><th>Title</th></tr></thead><tbody>
-    ${items.map((x,i)=>`<tr><td><input type="checkbox" data-i="${i}" ${x.uid&&known.has(x.uid)?'':'checked'}></td><td>${x.kind==='task'?'Task':x.rrule?'🔁 Event':'Event'}${x.uid&&known.has(x.uid)?' <span class="tag">duplicate</span>':''}</td><td class="num">${x.kind==='task'?(x.dueDate||''):esc(x.allDay?x.start:x.start.replace('T',' '))}</td><td>${esc(x.title)}</td></tr>`).join('')}</tbody></table></div>
+    ${items.map((x,i)=>`<tr><td><input type="checkbox" data-i="${i}" ${x.uid&&known.has(x.uid)?'':'checked'}></td><td>${x.kind==='task'?'Task':x.rrule?'🔁 Meeting':'Meeting'}${x.uid&&known.has(x.uid)?' <span class="tag">duplicate</span>':''}</td><td class="num">${x.kind==='task'?(x.dueDate||''):esc(x.allDay?x.start:x.start.replace('T',' '))}</td><td>${esc(x.title)}</td></tr>`).join('')}</tbody></table></div>
     <div class="dacts"><span class="sp"></span><button data-close>Cancel</button><button class="primary" data-go>Import selected</button></div>`,{size:'mid'});
   const F=$('form',d); bindCalProj(F);
   $('[data-all]',d).onchange=e=>$$('[data-i]',d).forEach(c=>c.checked=e.target.checked);
@@ -161,9 +163,10 @@ async function importIcsFile(file){
     let n=0;
     for(const c of $$('[data-i]:checked',d)){ const x=items[+c.dataset.i];
       if(x.kind==='task'){ const t=newTask({title:x.title, calendarId, projectId, dueDate:x.dueDate, dueTime:x.dueTime, notes:x.notes, status:x.done?'done':'todo', uid:x.uid}); if(x.reminders.length) t.reminders=x.reminders; touch(t); data.tasks.push(t); }
-      else { const e=newEvent({title:x.title, calendarId, projectId, allDay:x.allDay, start:x.start, end:x.end, tz:x.tz, location:x.location, notes:x.notes, status:x.cancelled?'cancelled':'confirmed', rrule:x.rrule, exceptions:x.exceptions, uid:x.uid, category:'other'}); e.reminders=x.reminders.length?x.reminders:e.reminders; if(e.allDay) delete e.tz; touch(e); data.events.push(e); }
+      else { const e=newEvent({title:x.title, calendarId, projectId, allDay:x.allDay, start:x.start, end:x.end, tz:x.tz, location:x.location, notes:x.notes, status:x.cancelled?'cancelled':'confirmed', rrule:x.rrule, exceptions:x.exceptions, uid:x.uid, category:'meeting'}); e.reminders=x.reminders.length?x.reminders:e.reminders; if(e.allDay) delete e.tz; touch(e); data.events.push(e); }
       n++; }
-    changed(); closeDialog(d); renderAll(); toast(`Imported ${n} item${n===1?'':'s'}`,{actions:[['Undo',undo]]});
+    let m=0; if($('[data-oldimp]',d)&&$('[data-oldimp]',d).checked) for(const e of oldImp){ e.category='meeting'; touch(e); m++; }
+    changed(); closeDialog(d); renderAll(); toast(`Imported ${n} item${n===1?'':'s'}`+(m?` · ${m} earlier import${m===1?'':'s'} changed to Meeting`:''),{actions:[['Undo',undo]]});
   };
 }
 
@@ -231,8 +234,9 @@ async function importBackupFile(f){
 /* ---------- archive (old items to a file, opened on demand) ---------- */
 async function archiveOld(months){
   const cut=key(addDays(TODAY(),-Math.round(months*30.4)));
-  const oldT=data.tasks.filter(t=>!isOpen(t) && (t.completedAt?t.completedAt.slice(0,10):(t.dueDate||'9999'))<cut);
-  const oldE=data.events.filter(e=>!e.rrule && (e.end||e.start).slice(0,10)<cut || (e.rrule && e.rrule.until && e.rrule.until<cut));
+  // items with attachments stay in the calendar (their files live on the server)
+  const oldT=data.tasks.filter(t=>!isOpen(t) && (t.completedAt?t.completedAt.slice(0,10):(t.dueDate||'9999'))<cut && !fileRefs(t).length);
+  const oldE=data.events.filter(e=>(!e.rrule && (e.end||e.start).slice(0,10)<cut || (e.rrule && e.rrule.until && e.rrule.until<cut)) && !fileRefs(e).length);
   if(!oldT.length && !oldE.length) return toast('Nothing older than that to archive.');
   if(!await confirmDlg({title:'Archive',html:`Move ${oldE.length} past events and ${oldT.length} finished tasks (before ${fmtDMY(fromKey(cut))}) to an archive file? The file downloads now; open it later from Settings → Data to include it in reports and search.`},[['Archive','y','primary'],['Cancel',null]])) return;
   const file={archive:true, created:nowISO(), before:cut, events:oldE.filter(x=>!isPrivate(x)||privKey), tasks:oldT.filter(x=>!isPrivate(x)||privKey), projects:data.projects};
@@ -383,7 +387,9 @@ function openSettings(tab){
       <div class="li"><button data-x="backup">⬇ Export backup (.json)</button>${editable?'<button data-x="restore">⬆ Restore / import backup…</button>':''}</div>
       <div class="rsec">Archive</div><p class="hint">Saving is limited to 3 MB on the server. Move past events and finished tasks older than a number of months to a file. Open an archive file to include it in reports and search for this session.</p>
       <div class="li">${editable?`<input type="number" data-am value="${s.archiveMonths}" min="1" style="width:80px"> months <button data-x="archive">Archive now…</button>`:''}<button data-x="openarch">Open archive file…</button>${archive?`<span class="tag">Open: ${esc(archive.name)}</span>`:''}</div>
-      <p class="hint">Current size: about ${Math.round(JSON.stringify(data).length/1024)} KB of 3,000 KB.</p></div>`;
+      <p class="hint">Current size: about ${Math.round(JSON.stringify(data).length/1024)} KB of 3,000 KB. Items with attachments are not archived.</p>
+      <div class="rsec">Attachments</div><p class="hint">Files attached to events, tasks and projects are kept on the server in the <code>data/files</code> folder. A file that is no longer attached anywhere (also not in the Trash) is deleted automatically 7 days later.</p>
+      <div class="li"><span class="hint" data-fuse>…</span>${editable?'<button data-x="filesgc">🧹 Clean up now</button>':''}</div></div>`;
     dd.querySelector('.box').innerHTML=`<div class="dhd"><h2>⚙ Settings</h2><button class="ghost" data-close>✕</button></div><div class="tabs">${tabs.map(([k,l])=>`<button data-st="${k}" class="${setTab===k?'on':''}">${l}</button>`).join('')}</div>${body}<div class="dacts"><span class="sp"></span><button class="primary" data-close>Done</button></div>`;
     const B=dd.querySelector('.box');
     $$('[data-close]',B).forEach(b=>b.onclick=()=>closeDialog(dd));
@@ -395,6 +401,7 @@ function openSettings(tab){
     $$('[data-p]',B).forEach(x=>x.onchange=x.oninput=()=>{ const n=x.dataset.p; prefs[n]= x.type==='checkbox'?x.checked : x.type==='range'?+x.value : x.value; savePrefs(); if(n==='offlineCopy'){ if(x.checked) cacheOffline(); else clearOffline(); } if(x.type==='range') render(); });
     const pm=$('[data-perm]',B); if(pm) pm.onclick=()=>askDesktopPermission().then(draw);
     const ch=$('[data-chime]',B); if(ch) ch.onclick=chime;
+    const fu=$('[data-fuse]',B); if(fu) filesUsageHTML().then(h=>{ fu.innerHTML=esc(h); }).catch(()=>{ fu.textContent=''; });
     $$('[data-edrem]',B).forEach(b=>b.onclick=()=>{ const n=b.dataset.edrem; const list=clone(s[n]).map(r=>{ delete r.anchor; return r; }); const ed=openDialog(`<div class="dhd"><h2>Default reminders</h2></div><div id="dr"></div><div class="dacts"><span class="sp"></span><button data-close>Cancel</button><button class="primary" data-ok>Save</button></div>`,{size:'narrow'});
       const rr=()=>{ $('#dr',ed).innerHTML=remFormHTML(list); bindRems($('#dr',ed),list,null,rr); }; rr(); $('[data-ok]',ed).onclick=()=>{ s[n]=list; changed(); closeDialog(ed); draw(); }; });
     // calendars
@@ -409,10 +416,11 @@ function openSettings(tab){
     const sb=$('[data-showbusy]',B); if(sb) sb.onchange=()=>{ s.showBusy=sb.checked; changed(); draw(); };
     a('[data-otpl]',openTemplates);
     $$('[data-rest]',B).forEach(b=>b.onclick=()=>{ restoreFromTrash(b.dataset.rest); draw(); });
-    a('[data-empty]',async()=>{ if(!await confirmDlg('Permanently delete everything in the trash?',[['Empty trash','y','danger'],['Cancel',null]])) return; data.trash=[]; changed(); draw(); });
+    a('[data-empty]',async()=>{ if(!await confirmDlg('Permanently delete everything in the trash?',[['Empty trash','y','danger'],['Cancel',null]])) return; data.trash=[]; changed(); draw(); setTimeout(()=>filesGc(false),3000); });
     $$('[data-x]',B).forEach(b=>b.onclick=()=>{ const x=b.dataset.x;
       if(x==='icsexp') openIcsExport(); if(x==='icsimp') pickFile('.ics,text/calendar',importIcsFile); if(x==='csvimp') pickFile('.csv,text/csv,.txt',importCsvFile);
       if(x==='backup') exportBackup(); if(x==='restore') pickFile('.json,.js,application/json',importBackupFile);
+      if(x==='filesgc'){ filesGc(true).then(r=>{ if(r){ toast(r.deleted?`${r.deleted} unused file${r.deleted===1?'':'s'} deleted`:r.unused?`${r.unused} unused file${r.unused===1?'':'s'} will be deleted in 7 days`:'Nothing to clean up'); draw(); } }); }
       if(x==='archive'){ const m=+$('[data-am]',B).value||12; s.archiveMonths=m; archiveOld(m); } if(x==='openarch') pickFile('.json',f=>openArchiveFile(f).then(draw)); });
   };
   const dd=openDialog('',{size:'mid',refresh:()=>{ if(!$('input:focus,select:focus',dd)) draw(); }}); draw();

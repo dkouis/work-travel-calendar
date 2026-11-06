@@ -142,3 +142,35 @@ ADD MENU AND VIEW MENU (5 Nov 2026, version 2.8.0)
   task, project, flight, day status, templates, imports). "View ▾" switches
   between Day, 3 days, Week, Month, Agenda and Board. Keys: Q quick add,
   N add menu, D 3 W M A B views.
+
+ATTACHMENTS AND OUTLOOK EMAILS (7 Nov 2026, version 2.9.0)
+  Upload BOTH index.php and api.php (api.php now stores files).
+  - Attachments: every event (meeting, appointment, deadline, travel, social,
+    other), task and project has an "Attachments" section in its edit window:
+    📎 Add files… (several at once) or drag files onto the window. Each file:
+    open/preview (pictures, PDF, text, emails), ⬇ download, ✎ rename,
+    ⇄ replace, ✕ remove. Files show in the details tab and the popup too.
+  - Where files are kept: the new folder data/files on the server (created
+    automatically). Like the rest of the data folder it cannot be opened from a
+    browser, only through the calendar by signed-in accounts, and it is never
+    replaced when you upload a new version. Include data/files when you copy
+    the data folder as a backup ("Export backup (.json)" does not contain files).
+  - Up to 50 MB per file. Files are sent in 1 MB pieces, so the PHP upload
+    limits of your host do not matter.
+  - Files of Personal items are encrypted in your browser before upload.
+  - A removed file stays on the server for 7 days (so Undo and the Trash still
+    work) and is then deleted automatically. ⚙ Settings → Data shows how much
+    space attachments use and has "🧹 Clean up now".
+  - Items with attachments are not moved out by Archive.
+  - OUTLOOK EMAIL (.msg): ＋ Add → 📧 Import email (.msg)…, or ⋯ → Import
+    Outlook email, or drag a .msg file from Outlook/your folder onto the
+    calendar. You see the email (sender, recipients, date, text and
+    attachments), choose what to create (Task by default, or Meeting,
+    Appointment, Deadline, Travel, Social, Other), adjust the title, calendar,
+    project and dates, tick which attachments to keep, then
+    "Continue to all details…" opens the full edit window (or "Add now").
+    The original email is attached too, and opens again as an email preview.
+    In Outlook: drag the email to the desktop, or File → Save As → "Outlook
+    Message Format - Unicode (*.msg)".
+  - Calendar files (.ics) are now imported as Meetings. The import window
+    can also change events imported earlier as "Other" to Meeting.

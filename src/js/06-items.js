@@ -109,13 +109,13 @@ async function deleteOcc(id, oc, kind){
 }
 function convertItem(it){
   if(it.type==='event'){
-    const t=newTask({title:it.title, calendarId:it.calendarId, projectId:it.projectId, notes:it.notes, tags:it.tags, private:it.private});
+    const t=newTask({title:it.title, calendarId:it.calendarId, projectId:it.projectId, notes:it.notes, tags:it.tags, private:it.private, files:arr(it.files)});
     if(!it.allDay){ t.blocks=[{id:uid('b'), start:it.start, end:it.end, tz:it.tz, done:false}]; t.estimateMin=localDiffMin(it.start,it.end); t.dueDate=it.start.slice(0,10); }
     else t.dueDate=it.start.slice(0,10);
     removeItem(it,true); touch(t); data.tasks.push(t); changed(); renderAll(); toast('Converted to a task',{actions:[['Undo',undo]]}); return t;
   }
   const b=it.blocks[0]; const k=b?b.start.slice(0,10):(it.dueDate||todayKey());
-  const e=newEvent({title:it.title, calendarId:it.calendarId, projectId:it.projectId, notes:it.notes, tags:it.tags, private:it.private, category:'other'});
+  const e=newEvent({title:it.title, calendarId:it.calendarId, projectId:it.projectId, notes:it.notes, tags:it.tags, private:it.private, category:'other', files:arr(it.files)});
   if(b){ e.start=b.start; e.end=b.end; e.tz=b.tz; } else if(it.dueDate){ e.allDay=true; e.start=k; e.end=k; }
   removeItem(it,true); touch(e); data.events.push(e); changed(); renderAll(); toast('Converted to an event',{actions:[['Undo',undo]]}); return e;
 }
@@ -145,6 +145,7 @@ function openOccPopover(id, oc, kind, anchorEl){
     ${it.attendees&&it.attendees.length?`<div class="ln">👥 ${esc(it.attendees.join(', '))}</div>`:''}
     ${conf?`<div class="warnbox" style="margin-top:6px">⚠ ${conf.map(esc).join('<br>')}</div>`:''}
     ${it.notes?`<div class="md" style="margin-top:6px;max-height:140px;overflow:auto">${md(it.notes)}</div>`:''}
+    ${fileRefs(it).length?`<div class="ln flistp">${filesListHTML(fileRefs(it))}</div>`:''}
     <div class="acts">
       ${editable?`<button class="primary" data-a="edit">✎ Edit</button>`:`<button data-a="edit">Details</button>`}
       ${editable&&isTask?`<button data-a="bdone">${o.done?'Not done':'✓ Block done'}</button>${isOpen(it)?'<button data-a="tdone">Task done</button>':''}`:''}
@@ -157,6 +158,7 @@ function openOccPopover(id, oc, kind, anchorEl){
   const r=anchorEl?anchorEl.getBoundingClientRect():{left:innerWidth/2,right:innerWidth/2,top:100};
   placePop(p,{left:r.right+6,right:r.left-6,top:r.top});
   $('[data-x]',p).onclick=closePopover;
+  bindFilesList(p, fileRefs(it));
   const act=(a,fn)=>{ const b=$(`[data-a="${a}"]`,p); if(b) b.onclick=()=>{ closePopover(); fn(); }; };
   act('edit',()=> it.type==='event' ? openEventEditor(id,null,oc) : openTaskEditor(id));
   act('bdone',()=>toggleBlockDone(id,oc));
