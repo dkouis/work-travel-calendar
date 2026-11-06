@@ -1,5 +1,5 @@
 // Greek / code page decoding of .msg email bodies. Usage: node tests/msg_charset.js src/js/15-msg.js [folder with sample .msg files]
-const fs=require('fs'); eval(fs.readFileSync(process.argv[2],'utf8')+';global.X={decodeHtmlBytes,rtfToText,parseMsg};');
+const fs=require('fs'); eval(fs.readFileSync(process.argv[2],'utf8')+';global.X={decodeHtmlBytes,rtfToText,parseMsg,mimeWords,parseAddrs};');
 const enc=(s,map)=>Uint8Array.from([...s].map(c=>c.charCodeAt(0)<128?c.charCodeAt(0):map[c]));
 const g1253={'Κ':0xca,'α':0xe1,'λ':0xeb,'η':0xe7,'μ':0xec,'έ':0xdd,'ρ':0xf1,'ε':0xe5};   // same bytes in iso-8859-7 for these letters except έ
 const word='Καλημέρα';
@@ -15,5 +15,9 @@ t('RTF-wrapped HTML, Greek font (fcharset161) with ansicpg1252', X.rtfToText(`{\
 t('RTF text, ansicpg1253', X.rtfToText(`{\\rtf1\\ansi\\ansicpg1253\\deff0{\\fonttbl{\\f0\\fnil Arial;}}\\f0 ${hex(word)}\\par}`), word);
 t('RTF text, Greek font only', X.rtfToText(`{\\rtf1\\ansi\\ansicpg1252{\\fonttbl{\\f0\\fnil\\fcharset0 Arial;}{\\f2\\fnil\\fcharset161 Arial Greek;}}\\f0 Hi {\\f2 ${hex(word)}} \\f0 end\\par}`), 'Hi '+word+' end');
 t('RTF \\u escapes', X.rtfToText('{\\rtf1\\ansi\\uc1 \\u922?\\u945?\\u955?\\par}'), 'Καλ');
+t('RFC 2047 base64 UTF-8 subject in pieces', X.mimeWords('=?utf-8?B?zpHPgDogQ29sbGFib3JhdGlvbg==?=\n =?utf-8?Q?_in_Costa_Rica]?='), 'Απ: Collaboration in Costa Rica]');
+t('RFC 2047 Q iso-8859-7', X.mimeWords('=?iso-8859-7?Q?=CA=E1=EB=E7=EC=DD=F1=E1?='), word);
+const ad=X.parseAddrs('=?utf-8?B?zpTOl86czpfOpM6hzpnOn86jIM6azp/Opc6XzqM=?= <dkouis@uniwa.gr>, "Smith, J" <j@x.org>, plain@y.org');
+t('address list with Greek names', JSON.stringify(ad), '[{"name":"ΔΗΜΗΤΡΙΟΣ ΚΟΥΗΣ","email":"dkouis@uniwa.gr"},{"name":"Smith, J","email":"j@x.org"},{"name":"plain@y.org","email":"plain@y.org"}]');
 if(process.argv[3]) for(const f of fs.readdirSync(process.argv[3]).filter(f=>f.endsWith('.msg'))){ const m=X.parseMsg(new Uint8Array(fs.readFileSync(process.argv[3]+'/'+f))); n++; const p=m.subject && (m.text||m.html) && !/[ÃÂ]\W/.test(m.html||''); ok+=!!p; if(!p) console.log('FAIL sample',f); }
 console.log(`${ok}/${n} passed`); process.exit(ok===n?0:1);

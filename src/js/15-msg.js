@@ -69,7 +69,7 @@ function decodeHtmlBytes(b, P, cp){
 /* properties of one storage: {id(hex4): value}; variable-size values from __substg1.0_ streams,
    fixed-size ones (numbers, dates, flags) from __properties_version1.0 */
 function msgProps(st, headerLen, cp){
-  const p={};
+  const p={}; Object.defineProperty(p,'__ansi',{value:new Set()});
   const fixed=st.streams['__properties_version1.0'];
   if(fixed){ const b=fixed(); const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
     for(let o=headerLen;o+16<=b.length;o+=16){
@@ -83,7 +83,7 @@ function msgProps(st, headerLen, cp){
     const m=/^__substg1\.0_([0-9A-F]{4})([0-9A-F]{4})$/i.exec(n); if(!m) continue;
     const id=m[1].toUpperCase(), type=m[2].toUpperCase();
     if(type==='001F') p[id]=_u16(fn());
-    else if(type==='001E') { if(p[id]===undefined) p[id]=_ansi(fn(), cp); }
+    else if(type==='001E') { if(p[id]===undefined){ p[id]=_ansi(fn(), cp); p.__ansi.add(id); } }
     else if(type==='0102') p[id]=fn();
   }
   return p;
@@ -101,15 +101,23 @@ function parseMsg(buf){
     return {name:r['3001']||r['5FF6']||addr, email:addr, type:r['0C15']===2?'cc':r['0C15']===3?'bcc':'to'}; });
   const hdrs=str('007D');
   const hdr=n=>{ const m=new RegExp('^'+n+':[ \\t]*((?:.*)(?:\\r?\\n[ \\t].*)*)','im').exec(hdrs); return m?m[1].replace(/\r?\n[ \t]+/g,' ').trim():''; };
-  const fromHdr=hdr('From');
-  const fromEmail=[str('5D01'),str('0C1F'),str('5D02'),str('0065')].find(isAddr) || ((/<([^>]+@[^>]+)>/.exec(fromHdr)||[])[1]) || (isAddr(fromHdr)?fromHdr:'');
-  const fromName=str('0C1A')||str('0042')||fromHdr.replace(/<[^>]*>/,'').replace(/"/g,'').trim()||fromEmail;
+  // Emails saved in the older ANSI .msg format lose letters outside the Windows code page (Greek becomes "?").
+  // The internet headers (RFC 2047) and the formatted body still have them, so prefer those then.
+  const lossy=id=>P.__ansi.has(id) && /\?/.test(P[id]||'');
+  const hFrom=parseAddrs(hdr('From'))[0]||null, hTo=parseAddrs(hdr('To')), hCc=parseAddrs(hdr('Cc')), hSubj=mimeWords(hdr('Subject'));
+  const fromEmail=[str('5D01'),str('0C1F'),str('5D02'),str('0065')].find(isAddr) || (hFrom&&hFrom.email) || '';
+  let fromName=str('0C1A')||str('0042');
+  if((!fromName || lossy('0C1A')||(!str('0C1A')&&lossy('0042'))) && hFrom && hFrom.name) fromName=hFrom.name;
+  fromName=fromName||fromEmail;
+  for(const r of recips){ if(/\?/.test(r.name||'')){ const h=[...hTo,...hCc].find(a=>a.email.toLowerCase()===(r.email||'').toLowerCase()); if(h&&h.name) r.name=h.name; } }
   // body: plain text, HTML, or compressed RTF (which may carry HTML)
   let html=null; if(P['1013']!==undefined) html = P['1013'] instanceof Uint8Array ? decodeHtmlBytes(P['1013'], P, cp) : String(P['1013']);
   let rtf=null; if(P['1009'] instanceof Uint8Array){ try{ rtf=rtfDecompress(P['1009']); }catch(e){} }
-  let text=str('1000');
+  let text=str('1000'), textFromHtml=false;
+  if(lossy('1000')) text='';                                     // rebuilt below from the RTF or HTML body
   if(!html && rtf && /\\fromhtml1/.test(rtf)) html=rtfToText(rtf,{html:true});
   if(!text && !html && rtf) text=rtfToText(rtf);
+  if(!text && html) textFromHtml=true;                          // the browser makes the plain text from the HTML
   // attachments
   const atts=Object.entries(root.storages).filter(([n])=>/^__attach_version1\.0_/i.test(n)).sort((a,b)=>a[0].localeCompare(b[0])).map(([,s])=>{
     const a=msgProps(s,8,cp); const method=a['3705']||1;
@@ -122,10 +130,28 @@ function parseMsg(buf){
     return {name, mime:a['370E']||'', size:data?data.length:0, data, method, cid, hidden:!!a['7FFE'] || (!!cid && /^image\//i.test(a['370E']||'') && !!html && html.includes(cid)), embedded:!!emb||method===5, ole:method===6};
   });
   const date=P['0039']||P['0E06']||P['3007']||(hdr('Date')?new Date(hdr('Date')):null);
-  const to=str('0E04')||recips.filter(r=>r.type==='to').map(r=>r.name).join('; ');
-  const cc=str('0E03')||recips.filter(r=>r.type==='cc').map(r=>r.name).join('; ');
-  return {subject:str('0037')||hdr('Subject'), fromName, fromEmail, to, cc, recips, date:(date instanceof Date && !isNaN(date))?date:null,
-    importance:P['0017']===undefined?1:P['0017'], cls:str('001A'), text, html, hasRtf:!!rtf, atts};
+  const names=l=>l.map(a=>a.name||a.email).join('; ');
+  const to=(lossy('0E04')&&hTo.length?names(hTo):str('0E04'))||recips.filter(r=>r.type==='to').map(r=>r.name).join('; ')||names(hTo);
+  const cc=(lossy('0E03')&&hCc.length?names(hCc):str('0E03'))||recips.filter(r=>r.type==='cc').map(r=>r.name).join('; ')||names(hCc);
+  const subject=(lossy('0037')&&hSubj)?hSubj:(str('0037')||hSubj);
+  return {subject, fromName, fromEmail, to, cc, recips, date:(date instanceof Date && !isNaN(date))?date:null,
+    importance:P['0017']===undefined?1:P['0017'], cls:str('001A'), text, textFromHtml, html, hasRtf:!!rtf, atts, ansi:P.__ansi.size>0 && !Object.keys(root.streams).some(n=>/001F$/i.test(n))};
+}
+/* RFC 2047 encoded words in headers: =?utf-8?B?...?= / =?iso-8859-7?Q?...?= */
+function mimeWords(s){
+  return String(s||'').replace(/(=\?[^?\s]+\?[BbQq]\?[^?\s]*\?=)\s+(?==\?)/g,'$1').replace(/=\?([^?\s]+)\?([BbQq])\?([^?\s]*)\?=/g,(all,cs,enc,txt)=>{
+    let bytes;
+    if(/b/i.test(enc)){ try{ bytes=Uint8Array.from(atob(txt),c=>c.charCodeAt(0)); }catch(e){ return all; } }
+    else { const t=txt.replace(/_/g,' '), a=[]; for(let i=0;i<t.length;i++){ if(t[i]==='=' && /^[0-9a-f]{2}$/i.test(t.substr(i+1,2))){ a.push(parseInt(t.substr(i+1,2),16)); i+=2; } else a.push(t.charCodeAt(i)&255); } bytes=Uint8Array.from(a); }
+    try{ return new TextDecoder(cs.replace(/\*.*$/,'')).decode(bytes); }catch(e){ return _ansi(bytes); } });
+}
+/* "Name" <a@b>, c@d -> [{name, email}] */
+function parseAddrs(s){
+  const out=[]; let cur='', q=false, ang=0;
+  for(const c of String(s||'')){ if(c==='"') q=!q; if(c==='<') ang++; if(c==='>') ang--; if(c===',' && !q && ang<=0){ out.push(cur); cur=''; } else cur+=c; }
+  if(cur.trim()) out.push(cur);
+  return out.map(x=>{ const m=/^\s*(.*?)\s*<([^>]+)>\s*$/.exec(x); const email=(m?m[2]:x).trim(); const name=m?mimeWords(m[1]).replace(/^"|"$/g,'').replace(/\\"/g,'"').trim():'';
+    return {name:name||email, email}; }).filter(a=>/@/.test(a.email));
 }
 /* MS-OXRTFCP: compressed RTF */
 function rtfDecompress(b){

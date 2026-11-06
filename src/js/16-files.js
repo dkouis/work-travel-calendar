@@ -91,7 +91,7 @@ async function openAttachment(f, opts={}){
   else if(k==='audio'||k==='video') B.innerHTML=`<${k} controls src="${url()}" style="max-width:100%;display:block;margin:auto"></${k}>`;
   else if(k==='text') B.innerHTML=`<pre class="ftext">${esc(new TextDecoder().decode(bytes.subarray(0,1048576)))}${bytes.length>1048576?'\n…':''}</pre>`;
   else if(k==='msg'){
-    let m; try{ m=parseMsg(bytes); }catch(e){ B.innerHTML=`<div class="warnbox">${esc(e.message)}</div>`; return d; }
+    let m; try{ m=readMsg(bytes); }catch(e){ B.innerHTML=`<div class="warnbox">${esc(e.message)}</div>`; return d; }
     B.innerHTML=emailPreviewHTML(m); bindEmailPreview(B, m);
     const ib=$('[data-a="imp"]',d); if(ib) ib.onclick=()=>{ closeDialog(d); openEmailImport(bytes, f.name); };
   }
@@ -272,6 +272,8 @@ function bindEmailPreview(root, m){
   $$('[data-matt]',root).forEach(t=>t.onclick=()=>{ const a=m.atts[+t.dataset.matt]; if(a&&a.data) saveBytes(a.data,a.name); });
   show(m.html?'html':'text');
 }
+/* parse, then make the plain text from the HTML when the stored plain text lost its letters (ANSI .msg) */
+function readMsg(bytes){ const m=parseMsg(bytes); if(m.textFromHtml && m.html){ try{ m.text=htmlToMarkdown(m.html).replace(/\*\*/g,'').replace(/ {2}\n/g,'\n'); }catch(e){} } return m; }
 function msgFileOk(f){ return /\.msg$/i.test(f.name||''); }
 async function importMsgFile(file){
   if(!editable) return;
@@ -279,7 +281,7 @@ async function importMsgFile(file){
   openEmailImport(new Uint8Array(await file.arrayBuffer()), file.name);
 }
 function openEmailImport(bytes, fname){
-  let m; try{ m=parseMsg(bytes); }catch(e){ return alert(`“${fname}” could not be read: ${e.message}`); }
+  let m; try{ m=readMsg(bytes); }catch(e){ return alert(`“${fname}” could not be read: ${e.message}`); }
   const k=todayKey();
   const n=new Date(NOW()); const st=minToHM(Math.min(23*60,Math.ceil((n.getHours()*60+n.getMinutes())/30)*30+30));
   const atts=m.atts.map((a,i)=>({...a,i})).filter(a=>a.data || a.embedded);
