@@ -14,6 +14,9 @@ async def main():
         b=await pw.chromium.launch()
         for f in ('throttle.php','reset-passwords.txt'):
             if os.path.exists(D+f): os.remove(D+f)
+        cx=await b.new_context(); px=await cx.new_page(); await px.goto(BASE); await px.wait_for_selector('#loginForm')
+        ok('sign-in page shows no "choose a new password" fields until a reset asks for them', not await px.locator('#lNewBox').is_visible() and await px.locator('#lPass').is_visible())
+        await cx.close()
         # a signed-in session that must be ended by the reset
         c0=await b.new_context(); p0=await c0.new_page(); ok('signs in before reset', await login(p0,'dkouis','secret123'))
         # Windows Notepad style file: BOM + CRLF, a comment, a bad line, a new editor, a too-short password

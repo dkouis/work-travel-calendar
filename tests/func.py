@@ -519,6 +519,9 @@ async def main():
         ok('Escape closes the menu', not await page.locator('#addMenu').is_visible())
         await ev(page,"setView('week')")
 
+        # ---- nothing marked hidden is shown ----
+        shown=await page.evaluate("[...document.querySelectorAll('[hidden]')].filter(e=>e.getClientRects().length>0).map(e=>e.id||e.className||e.tagName)")
+        ok('no element marked hidden is visible', shown==[], shown)
         # ---- performance with 5,000 items ----
         perf=await ev(page,"""()=>{ const base=fromKey('2026-11-02'); for(let i=0;i<5000;i++){ const d=addDays(base,(i%120)-60), k=key(d), h=8+(i%10); if(i%2) data.events.push(touch(newEvent({title:'Load '+i, start:k+'T'+String(h).padStart(2,'0')+':00', end:k+'T'+String(h).padStart(2,'0')+':45', tz:'Europe/Athens'}))); else data.tasks.push(touch(newTask({title:'Load task '+i, dueDate:k, blocks:[{id:uid('b'),start:k+'T'+String(h).padStart(2,'0')+':00',end:k+'T'+String(h).padStart(2,'0')+':30',tz:'Europe/Athens',done:false}]}))); }
             invalidateCaches(); changeSeq++; cursor=fromKey('2026-11-02'); view='week'; weekCompact=false;

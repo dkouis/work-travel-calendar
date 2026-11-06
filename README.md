@@ -60,8 +60,8 @@ FOLDERS
               2. python3 tests/seed.py <folder>      (creates a sample old-format calendar;
                  run it again before each test suite: func.py adds 5,000 items for its speed test)
               3. create accounts dkouis / secret123 and viewer / viewer123 on first open
-              4. WTC_SRV=<folder> python3 tests/func.py        (107 checks)
-              5. WTC_SRV=<folder> python3 tests/passwords.py   (19 checks: reset file, forced change, change password)
+              4. WTC_SRV=<folder> python3 tests/func.py        (108 checks)
+              5. WTC_SRV=<folder> python3 tests/passwords.py   (20 checks: reset file, forced change, change password)
               6. WTC_SRV=<folder> python3 tests/detail.py      (20 checks: details in a new tab)
               7. WTC_SRV=<folder> python3 tests/edit.py        (28 checks: edit windows in a new tab)
 

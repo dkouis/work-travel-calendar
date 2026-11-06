@@ -249,6 +249,8 @@ table.rt .note{color:var(--muted);font-size:12.5px}
   .month,.panel,.wcol{box-shadow:none}
   .st{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+/* anything marked hidden stays hidden, whatever display a class gives it */
+[hidden]{display:none!important}
 /* ================= v2 additions: planner ================= */
 :root{
   --work:#3b5bdb; --personal:#2f9e44; --hour:44px; --side:236px; --tasksw:300px;
@@ -914,7 +916,7 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 const API = 'api.php';
 const POLL_MS = 60000;
 const SCHEMA = 2;
-const APP_VERSION = '2.8.0';   // see CHANGELOG.md
+const APP_VERSION = '2.8.1';   // see CHANGELOG.md
 const CATEGORIES = {meeting:'👥 Meeting', appointment:'📌 Appointment', deadline:'⏰ Deadline', travel:'🧳 Travel', social:'🎉 Social', other:'• Other'};
 const CAT_ICON = {meeting:'👥', appointment:'📌', deadline:'⏰', travel:'🧳', social:'🎉', other:''};
 const TASK_STATUS = {todo:'To do', 'in-progress':'In progress', waiting:'Waiting', done:'Done', cancelled:'Cancelled'};

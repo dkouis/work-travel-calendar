@@ -3,6 +3,13 @@
 All notable changes to the Work & Travel Calendar. Dates are Athens time.
 "Upload" says which server files changed; the `data` folder (calendar, accounts, passwords) is never replaced.
 
+## [2.8.1] – 2026-11-06
+Upload: `index.php`
+
+### Fixed
+- The sign-in page always showed the "Choose a new password" fields, although no reset had been requested. They were only displayed by mistake: signing in with username and password worked, and anything typed in them was ignored, so no password was changed. They now appear only when a reset asks for a new password.
+- More generally, nothing marked as hidden can be displayed by a style any more.
+
 ## [2.8.0] – 2026-11-05 — Add menu and View menu
 Upload: `index.php`
 
@@ -138,6 +145,7 @@ Upload: `index.php` and the installable-app files
 - Work status, location, flights and comments per day; Week and Month views; Trips report.
 - 1 Nov 2026: moved from a single HTML file to the PHP version (`index.php` + `api.php`) with server accounts, automatic saving and version history.
 
+[2.8.1]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.8.0]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.7.0]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.6.0]: https://github.com/dkouis/work-travel-calendar/commits/main

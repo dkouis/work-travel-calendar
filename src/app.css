@@ -1,3 +1,5 @@
+/* anything marked hidden stays hidden, whatever display a class gives it */
+[hidden]{display:none!important}
 /* ================= v2 additions: planner ================= */
 :root{
   --work:#3b5bdb; --personal:#2f9e44; --hour:44px; --side:236px; --tasksw:300px;
