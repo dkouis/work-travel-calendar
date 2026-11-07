@@ -17,6 +17,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 - Attachments on events, tasks and projects (stored in `site/data/files`, up to 50 MB each, encrypted for Personal items, automatic clean-up)
 - Import Outlook emails (.msg) with a preview, as a task or any event type, with their attachments
 - .ics imports become Meetings
+- Calendar links: private subscription addresses (all calendars or one) for the iPhone Calendar app, Outlook and Google, with reminders
 - Quick add in English and Greek, templates, search, keyboard shortcuts, undo
 - Editor and viewer accounts (hashed passwords in `site/data/users.php`); change own password; reset by placing `data/reset-passwords.txt` on the server; Personal items encrypted in the browser with a passphrase
 - .ics import/export (Outlook, Google), CSV task import, backups and server version history
@@ -58,6 +59,7 @@ FOLDERS
               14 details of events, projects and flights, and edit windows, in their own tab
               15 Outlook .msg reader (compound file, MAPI properties, compressed RTF)
               16 attachments (upload, preview, clean-up) and the email import window
+              17 calendar links (subscription feeds built in the browser, served by api.php?a=ics)
   build.py  Joins src/ into site/index.php (needs Python 3 and Node.js for
             the syntax check):   python3 build.py
   tests/    Browser tests (Python 3 + Playwright + PHP):
@@ -73,6 +75,7 @@ FOLDERS
                  .msg import, .ics as Meetings). Sample emails: git clone https://github.com/kenjiuno/msgreader
                  and use msgreader/MsgReaderTests/SampleFiles. Start PHP as in step 1.
               9. node tests/msg_charset.js src/js/15-msg.js [sample folder]   (Greek / code pages in emails)
+             10. WTC_SRV=<folder> python3 tests/feeds.py       (38 checks: calendar links; pip install icalendar)
 
 TO CHANGE THE APP
   Edit files in src/, run python3 build.py, then upload site/index.php.

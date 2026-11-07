@@ -63,7 +63,7 @@ async function saveNow(){
     base = await serialize(); basePriv = privKey ? clone(privPart()) : basePriv;
     cacheOffline();
     netError = false;
-    if(seq===changeSeq){ dirty=false; setSave('Saved ✓','ok'); }
+    if(seq===changeSeq){ dirty=false; setSave('Saved ✓','ok'); scheduleFeedSync(); }
     else saveTimer = setTimeout(saveNow, 300);
   }catch(e){
     if(e.status===409){ conflict = e.body; setSave('Not saved','err'); }
@@ -167,7 +167,7 @@ async function reloadData(manual){
   if(editable && (dirty || saving || conflict)){ if(manual) alert(conflict ? 'Choose what to do with your change first (see the message at the top).' : 'Your latest change is still being saved. Try again in a moment.'); return; }
   try{
     const changedOnServer = await loadData(false);
-    if(changedOnServer){ renderAll(); }
+    if(changedOnServer){ renderAll(); scheduleFeedSync(); }
     if(manual) setSave(editable?'Saved ✓':'Up to date','ok');
   }catch(e){ if(manual && e.status!==401) alert(e.message); }
 }
@@ -218,6 +218,7 @@ async function enter(me){
   afterModeChange();
   startReminders();
   maybeFilesGc();
+  scheduleFeedSync(6000);
   if(DETAIL) return;
   setTimeout(tzTravelPrompt, 2500);
   routeMainHash();

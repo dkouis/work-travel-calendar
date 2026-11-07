@@ -485,3 +485,15 @@ body.detail #detail:has(.dlg.page){max-width:none;margin:0;padding:0}
 .mailframe{width:100%;height:52vh;border:1px solid var(--line,#ddd);border-radius:6px;background:#fff}
 .mailform .list-edit label{display:block}
 @media (max-width:820px){ .mailimp{grid-template-columns:1fr} .mailframe,.mailbody .ftext{height:auto;max-height:40vh} .mailframe{height:40vh} }
+/* calendar links */
+.feed{border:1px solid var(--line,#ddd);border-radius:10px;padding:10px 12px;margin:0 0 10px;display:flex;flex-direction:column;gap:6px}
+.feedhd{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.feedurl input{width:100%;font:12px ui-monospace,Consolas,monospace}
+.feedbtns{display:flex;flex-wrap:wrap;gap:6px}
+a.btn{display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border:1px solid var(--line,#ccc);border-radius:8px;text-decoration:none;color:inherit;background:var(--card,transparent);font-size:inherit}
+a.btn:hover{border-color:var(--accent)}
+.qrbox{width:200px;height:200px;background:#fff;padding:6px;border-radius:8px}
+.qrbox svg{width:100%;height:100%;display:block}
+.feedqr{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.feedhow{margin-top:8px}.feedhow p{margin:6px 0}
+.caldot{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle}

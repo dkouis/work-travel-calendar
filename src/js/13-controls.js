@@ -88,6 +88,7 @@ function bindTop(){
     if(a==='signout') signOut();
     if(a==='password') openChangePassword();
     if(!editable) return;
+    if(a==='feeds') openFeeds();
     if(a==='msgimp') pickFile('.msg,application/vnd.ms-outlook',importMsgFile);
     if(a==='icsimp') pickFile('.ics,text/calendar',importIcsFile);
     if(a==='csvimp') pickFile('.csv,text/csv,.txt',importCsvFile);

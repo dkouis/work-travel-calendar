@@ -174,3 +174,21 @@ ATTACHMENTS AND OUTLOOK EMAILS (7 Nov 2026, version 2.9.0)
     Message Format - Unicode (*.msg)".
   - Calendar files (.ics) are now imported as Meetings. The import window
     can also change events imported earlier as "Other" to Meeting.
+
+CALENDAR LINKS FOR iPHONE / OUTLOOK (7 Nov 2026, version 2.10.0)
+  Upload BOTH index.php and api.php.
+  - ⋯ → 🔗 Calendar links: click "Create a link for each calendar + one for
+    all". Each link is a private address that your phone or Outlook reads by
+    itself, with the reminders as alerts on the phone.
+  - iPhone: open the calendar on the iPhone, ⋯ → Calendar links, tap
+    "📱 Subscribe on this device" (or scan "▦ QR code" with the camera from
+    the computer), then Subscribe → Add. If reminders do not sound: iPhone
+    Settings → Calendar → Accounts → (the subscription) → Remove Alerts off.
+  - Outlook: Outlook on the web → Calendar → Add calendar → Subscribe from
+    web → paste the link. It then shows in the Outlook app too (Outlook
+    refreshes every few hours and may ignore the reminders).
+  - Anyone with a link can read that calendar: keep it private; "New address"
+    makes an old link stop working.
+  - Personal items appear only in links where you tick "Include Personal
+    details" (they are then kept unencrypted on the server for that link).
+  - Links are stored in data/feeds.php and data/feedparts.php.

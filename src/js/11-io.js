@@ -4,7 +4,10 @@
    ============================================================ */
 /* ---------- .ics export ---------- */
 const icsEsc=s=>String(s||'').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');
-const icsFold=l=>{ const out=[]; let s=l; while(s.length>73){ out.push(s.slice(0,73)); s=' '+s.slice(73); } out.push(s); return out.join('\r\n'); };
+const icsFold=l=>{ const out=[]; let cur='', n=0;        // lines of at most 75 bytes (UTF-8), never splitting a character
+  for(const ch of l){ const b=ch.codePointAt(0)<0x80?1:ch.codePointAt(0)<0x800?2:ch.codePointAt(0)<0x10000?3:4;
+    if(n+b>75){ out.push(cur); cur=' '; n=1; } cur+=ch; n+=b; }
+  out.push(cur); return out.join('\r\n'); };
 const icsLocal=l=>l.replace(/[-:]/g,'').slice(0,13)+'00';
 const icsDate=k=>k.replace(/-/g,'');
 const icsUTC=ms=>new Date(fromDisp(ms)).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
@@ -77,6 +80,7 @@ function openIcsExport(){
   const [a,b]=visibleRange();
   const d=openDialog(`<div class="dhd"><h2>📤 Export calendar file (.ics)</h2><button class="ghost" data-close>✕</button></div>
     <p class="hint">Import the file into Outlook, Google Calendar or your phone. Reminders are included, so they also alert there when this app is closed.</p>
+    <p class="hint">For a calendar that updates by itself on your iPhone or in Outlook, use <a href="#" data-feeds>🔗 Calendar links</a> instead.</p>
     <form class="frm"><label>From</label><input type="date" name="f" value="${key(a)}"><label>To</label><input type="date" name="t" value="${key(addDays(b,-1))}">
       <label>Calendar</label><select name="c"><option value="">All</option>${data.calendars.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
       <label>Project</label><select name="p"><option value="">All</option>${data.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>
@@ -85,6 +89,7 @@ function openIcsExport(){
   const F=$('form',d), v=n=>$(`[name=${n}]`,F).value;
   const go=all=>{ const c=v('c'), p=v('p'); exportIcs({from:all?null:v('f'), to:all?null:v('t'), name:'calendar-'+(all?'all':v('f')+'_'+v('t')), filter:it=>(!c||it.calendarId===c)&&(!p||it.projectId===p), flights:$('[name=fl]',F).checked}); closeDialog(d); };
   $('[data-go]',d).onclick=()=>go(false); $('[data-q]',d).onclick=()=>go(true);
+  const fl=$('[data-feeds]',d); if(fl) fl.onclick=e=>{ e.preventDefault(); closeDialog(d); openFeeds(); };
 }
 
 /* ---------- .ics import ---------- */

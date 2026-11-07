@@ -263,6 +263,27 @@ function body(): array {
   return $j;
 }
 
+/* ---------- calendar links (subscriptions for iPhone, Outlook, Google) ----------
+   data/feeds.php: {feeds:{token:{name, cals, tasks, flights, status, alarms, personal, by, created, used}}}
+   data/feedparts.php: {key:{h, tzs:{tzid:text}, body:text, at}} — events written by the browser on every save
+   (keys: e:<calendar> t:<calendar> pe:<calendar> pt:<calendar> flights status) */
+function feeds_read(): array { $f = store_read('feeds'); return is_array($f) && isset($f['feeds']) && is_array($f['feeds']) ? $f : ['feeds' => []]; }
+function feed_token(): string { return rtrim(strtr(base64_encode(random_bytes(24)), '+/', '-_'), '='); }
+function feed_clean(array $b): array {
+  $cals = $b['cals'] ?? '*';
+  if ($cals !== '*') $cals = array_values(array_slice(array_filter((array)$cals, fn($c) => is_string($c) && preg_match('/^[\w-]{1,40}$/', $c)), 0, 50));
+  return ['name' => mb_substr(trim((string)($b['name'] ?? 'Calendar')), 0, 80) ?: 'Calendar', 'cals' => $cals,
+    'tasks' => !empty($b['tasks']), 'flights' => !empty($b['flights']), 'status' => !empty($b['status']),
+    'alarms' => !array_key_exists('alarms', $b) || !empty($b['alarms']), 'personal' => !empty($b['personal'])];
+}
+function feeds_purge_personal(array $F): void {   // no link asks for Personal details any more: remove them from the server
+  foreach ($F['feeds'] as $f) if (!empty($f['personal'])) return;
+  $parts = store_read('feedparts') ?: []; $n = count($parts);
+  foreach (array_keys($parts) as $pk) if (preg_match('/^p[et]:/', (string)$pk)) unset($parts[$pk]);
+  if (count($parts) !== $n) store_write('feedparts', $parts);
+}
+function ics_line_esc(string $s): string { return str_replace(["\\", "\n", ",", ";"], ["\\\\", "\\n", "\\,", "\;"], $s); }
+
 /* ============================================================ */
 ensure_dirs();
 process_reset_file();
@@ -540,6 +561,110 @@ switch ($a) {
       return ['deleted' => $del, 'unused' => $marked] + files_usage($idx);
     });
     out($res);
+
+  case 'ics':                                     // PUBLIC: ?k=<secret> — the calendar file a phone or Outlook subscribes to (no session)
+    $k = (string)($_GET['k'] ?? '');
+    $F = preg_match('/^[\w-]{20,64}$/', $k) ? feeds_read() : ['feeds' => []];
+    $f = $F['feeds'][$k] ?? null;
+    if (!$f) { usleep(300000); header('Content-Type: text/plain; charset=utf-8'); http_response_code(404); echo "This calendar link is not valid any more.\n"; exit; }
+    $parts = store_read('feedparts') ?: [];
+    $calIds = [];
+    foreach (array_keys($parts) as $pk) if (preg_match('/^p?[et]:(.+)$/', (string)$pk, $m)) $calIds[$m[1]] = true;
+    $cals = $f['cals'] === '*' ? array_keys($calIds) : $f['cals'];
+    $keys = [];
+    foreach ($cals as $c) {
+      $keys[] = 'e:' . $c; if ($f['tasks']) $keys[] = 't:' . $c;
+      if ($f['personal']) { $keys[] = 'pe:' . $c; if ($f['tasks']) $keys[] = 'pt:' . $c; }
+    }
+    if ($f['flights']) $keys[] = 'flights';
+    if ($f['status']) $keys[] = 'status';
+    $tzs = []; $body = '';
+    foreach ($keys as $pk) { $p = $parts[$pk] ?? null; if (!is_array($p)) continue;
+      foreach ((array)($p['tzs'] ?? []) as $id => $txt) $tzs[$id] = (string)$txt;
+      $body .= (string)($p['body'] ?? ''); }
+    if (!$f['alarms']) $body = preg_replace('/BEGIN:VALARM\r\n.*?END:VALARM\r\n/s', '', $body);
+    // remember when a calendar app last read the link (at most every 10 minutes)
+    if (empty($f['used']) || strtotime($f['used']) < time() - 600) {
+      with_lock(function () use ($k) { $F = feeds_read(); if (isset($F['feeds'][$k])) { $F['feeds'][$k]['used'] = gmdate('c'); $F['feeds'][$k]['ua'] = mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 120); store_write('feeds', $F); } });
+    }
+    $head = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Work & Travel Calendar//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n"
+      . 'X-WR-CALNAME:' . ics_line_esc($f['name']) . "\r\nREFRESH-INTERVAL;VALUE=DURATION:PT1H\r\nX-PUBLISHED-TTL:PT1H\r\n";
+    header_remove('Content-Type');
+    header('Content-Type: text/calendar; charset=utf-8');
+    header('Content-Disposition: inline; filename="' . preg_replace('/[^\w.-]+/', '_', $f['name']) . '.ics"');
+    header('Cache-Control: private, max-age=300');
+    header('X-Content-Type-Options: nosniff');
+    echo $head . implode('', $tzs) . $body . "END:VCALENDAR\r\n";
+    exit;
+
+  case 'feeds':                                   // editor: the calendar links and which event groups the browser should keep up to date
+    require_user(true);
+    session_write_close();
+    $F = feeds_read(); $parts = store_read('feedparts') ?: [];
+    $hashes = []; foreach ($parts as $pk => $p) $hashes[$pk] = $p['h'] ?? '';
+    $list = []; foreach ($F['feeds'] as $tok => $f) $list[] = ['id' => $tok] + $f;
+    out(['feeds' => $list, 'hashes' => $hashes]);
+
+  case 'feed_save':                               // editor: {id?, name, cals, tasks, flights, status, alarms, personal} -> {id}
+    if (!$post) fail('Use POST.', 405);
+    $u = require_user(true);
+    session_write_close();
+    $b = body();
+    $id = with_lock(function () use ($b, $u) {
+      $F = feeds_read(); $id = (string)($b['id'] ?? '');
+      if ($id !== '' && !isset($F['feeds'][$id])) fail('That calendar link no longer exists.', 404);
+      if ($id === '') { if (count($F['feeds']) >= 50) fail('Too many calendar links.'); $id = feed_token(); $F['feeds'][$id] = ['by' => $u['user'], 'created' => gmdate('c')]; }
+      $F['feeds'][$id] = feed_clean($b) + $F['feeds'][$id];
+      store_write('feeds', $F);
+      feeds_purge_personal($F);
+      return $id;
+    });
+    out(['id' => $id]);
+
+  case 'feed_renew':                              // editor: {id} -> {id} new secret address, the old one stops working
+    if (!$post) fail('Use POST.', 405);
+    require_user(true);
+    session_write_close();
+    $old = (string)(body()['id'] ?? '');
+    $id = with_lock(function () use ($old) {
+      $F = feeds_read(); if (!isset($F['feeds'][$old])) fail('That calendar link no longer exists.', 404);
+      $id = feed_token(); $f = $F['feeds'][$old]; unset($F['feeds'][$old], $f['used'], $f['ua']); $F['feeds'][$id] = $f;
+      store_write('feeds', $F); return $id;
+    });
+    out(['id' => $id]);
+
+  case 'feed_delete':                             // editor: {id}
+    if (!$post) fail('Use POST.', 405);
+    require_user(true);
+    session_write_close();
+    $id = (string)(body()['id'] ?? '');
+    with_lock(function () use ($id) {
+      $F = feeds_read(); unset($F['feeds'][$id]); store_write('feeds', $F);
+      feeds_purge_personal($F);
+    });
+    out(['ok' => true]);
+
+  case 'feed_parts':                              // editor: {parts:{key:{h,tzs,body}|null}}
+    if (!$post) fail('Use POST.', 405);
+    require_user(true);
+    session_write_close();
+    $in = (array)(body()['parts'] ?? []);
+    with_lock(function () use ($in) {
+      $parts = store_read('feedparts') ?: [];
+      $F = feeds_read(); $personal = false; foreach ($F['feeds'] as $f) if (!empty($f['personal'])) $personal = true;
+      foreach ($in as $pk => $p) {
+        $pk = (string)$pk;
+        if (!preg_match('/^(p?[et]:[\w-]{1,40}|flights|status)$/', $pk)) continue;
+        if ($p === null || (!$personal && $pk[0] === 'p' && $pk !== 'flights')) { unset($parts[$pk]); continue; }
+        $body = (string)($p['body'] ?? '');
+        if ($body !== '' && !preg_match('/^BEGIN:VEVENT\r\n/', $body)) continue;           // only events
+        if (preg_match('/^(BEGIN|END):VCALENDAR/m', $body)) continue;
+        $tzs = []; foreach ((array)($p['tzs'] ?? []) as $id => $t) if (preg_match('/^BEGIN:VTIMEZONE\r\n[\s\S]*END:VTIMEZONE\r\n$/', (string)$t)) $tzs[mb_substr((string)$id, 0, 60)] = (string)$t;
+        $parts[$pk] = ['h' => mb_substr((string)($p['h'] ?? ''), 0, 40), 'tzs' => $tzs, 'body' => $body, 'at' => gmdate('c')];
+      }
+      store_write('feedparts', $parts);
+    });
+    out(['ok' => true]);
 
   default:
     fail('Unknown action.', 404);

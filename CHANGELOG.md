@@ -3,6 +3,24 @@
 All notable changes to the Work & Travel Calendar. Dates are Athens time.
 "Upload" says which server files changed; the `data` folder (calendar, accounts, passwords) is never replaced.
 
+## [2.10.0] – 2026-11-07 — Calendar links (iPhone, Outlook, Google)
+Upload: `api.php`, `index.php`
+
+### Added
+- **⋯ → 🔗 Calendar links (iPhone, Outlook)…**: private subscription addresses that the iPhone Calendar app, Outlook or Google Calendar read and keep up to date, with the reminders as alerts on the phone.
+  - **Create a link for each calendar + one for all** in one click, or **＋ New link** to choose: all calendars (including ones added later) or only some; tasks (work blocks ☐ and due dates ⚑); flights ✈ with their alarm (06:00 / 14:00 / 17:30 or the flight's own); work status and location of each day; reminders on or off.
+  - Per link: **Copy link**, **📱 Subscribe on this device** (webcal://, opens the iPhone's Subscribe screen), **▦ QR code** to scan with the iPhone camera, **Edit**, **New address** (the old one stops working), **Delete**; shows when a calendar app last read it (iPhone/iPad, Outlook, Google).
+  - "How to subscribe" steps for iPhone (including "Remove Alerts" and "Fetch New Data"), Outlook on the web (it then appears in the Outlook app) and Google Calendar.
+  - Contents: events with their time zone, location, notes as plain text, online link, attachments' names; repeating events with deleted and moved occurrences; all-day reminders at 09:00 like in the app; items from 60 days ago onwards.
+  - Updated by the browser after every save (only what changed is sent), after reloading changes from others, and every 10 minutes; the phone or Outlook then fetches it on its own schedule.
+  - **Personal** items are encrypted, so they appear in a link only if "Include Personal details" is ticked for it (a warning explains that they are then stored unencrypted on the server for that link); they are updated while Personal items are unlocked and removed from the server when no link uses them.
+  - Links work without signing in (the long random address is the key) and only for the calendar they were made for; viewers cannot create links.
+- Export calendar file window points to Calendar links for calendars that update by themselves.
+- QR codes by qrcode-generator 1.4.4 (MIT), included in `index.php`.
+
+### Fixed
+- Exported .ics files: long lines with Greek text are folded at 75 bytes as the standard requires (some apps rejected them).
+
 ## [2.9.2] – 2026-11-07
 Upload: `index.php`
 
@@ -183,6 +201,7 @@ Upload: `index.php` and the installable-app files
 - Work status, location, flights and comments per day; Week and Month views; Trips report.
 - 1 Nov 2026: moved from a single HTML file to the PHP version (`index.php` + `api.php`) with server accounts, automatic saving and version history.
 
+[2.10.0]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.9.2]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.9.1]: https://github.com/dkouis/work-travel-calendar/commits/main
 [2.9.0]: https://github.com/dkouis/work-travel-calendar/commits/main
